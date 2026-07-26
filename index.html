@@ -374,20 +374,38 @@
 
         function updateUI() {
             const currentUser = sessionStorage.getItem('currentUser');
-            const authHeaderArea = document.getElementById('authHeaderArea');
             const setupLoginArea = document.getElementById('setupLoginArea');
             
+            // Üst header alanını temiz tutuyoruz
+            document.getElementById('authHeaderArea').innerHTML = '';
+
+            // Sekmeler alanını bulup çıkış butonunu oraya dinamik ekleyeceğiz
+            const tabsContainer = document.querySelector('.tabs');
+            
+            // Varsa eski çıkış butonunu temizle
+            const oldLogoutBtn = document.getElementById('dynamicLogoutBtn');
+            if(oldLogoutBtn) oldLogoutBtn.remove();
+
             if (currentUser) {
-                authHeaderArea.innerHTML = `<button class="logout-btn-top" onclick="logout()">Çıkış (${currentUser.toUpperCase()})</button>`;
                 if(setupLoginArea) {
-                    setupLoginArea.innerHTML = `<span style="color:#28a745; font-weight:bold;">✓ Giriş Yapıldı: ${currentUser.toUpperCase()}</span><br>
-                    <button onclick="logout()" style="background:#dc3545; color:white; border:none; padding:3px 8px; font-size:11px; margin-top:5px; border-radius:4px; cursor:pointer;">Oturumu Kapat</button>`;
+                    setupLoginArea.innerHTML = `<span style="color:#28a745; font-weight:bold; font-size:1.1rem;">✓ Oturum Açık: ${currentUser.toUpperCase()}</span>`;
+                }
+                
+                // Mobilde en rahat erişilen yer: Sekmelerin hemen yanı!
+                if(tabsContainer) {
+                    const logoutBtn = document.createElement('button');
+                    logoutBtn.id = 'dynamicLogoutBtn';
+                    logoutBtn.innerText = '❌ Kapat';
+                    logoutBtn.style.cssText = 'background:#e74c3c; color:fff; border:none; padding:0 8px; font-weight:bold; border-radius:6px; font-size:11px; cursor:pointer; height:31px;';
+                    logoutBtn.onclick = logout;
+                    tabsContainer.appendChild(logoutBtn);
                 }
             } else {
-                authHeaderArea.innerHTML = `<button class="auth-top-btn" id="openLoginModalBtn">🔑 Üye İşlemleri</button>`;
                 if(setupLoginArea) {
-                    setupLoginArea.innerHTML = `<span style="color:#ff3b30; font-weight:bold; display:block; margin-bottom:4px;">⚠️ İstatistik için giriş gerekli</span>
-                    <button id="setupLoginBtn" style="background:#ffdd57; color:#333; border:none; font-weight:bold; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;">🔑 Giriş Yap / Kayıt Ol</button>`;
+                    setupLoginArea.innerHTML = `
+                        <span style="color:#ff3b30; font-weight:bold; display:block; margin-bottom:10px; font-size:0.95rem;">⚠️ Ortak Veritabanı İçin Giriş Yapın</span>
+                        <button id="setupLoginBtn" style="width:100%; background:#ffdd57; color:#333; border:none; font-weight:bold; padding:12px; border-radius:8px; cursor:pointer; font-size:14px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">🔑 GİRİŞ YAP / HESAP AÇ</button>
+                    `;
                 }
             }
         }
