@@ -591,6 +591,7 @@
             element.addEventListener('touchmove', cancel);
         }
 
+        // --- DÜZENLEME MENÜLERİ (UZUN BASMA / HÜCRE AKSİYONLARI) ---
         function duzenleMenuUst(inputEl, tid) {
             var eskiDeger = inputEl.value;
             var elNo = inputEl.getAttribute('data-el');
@@ -775,6 +776,7 @@
             }
         }
 
+        // --- MOBİL DİKEY BOYUTLANDIRICI (RESIZER) ---
         function initResizer() {
             var resizer = document.getElementById('resizer');
             var upWrap = document.getElementById('upWrap2');
@@ -787,8 +789,14 @@
                 document.removeEventListener('mousemove', drag);
                 document.removeEventListener('touchmove', drag);
             };
-            resizer.addEventListener('mousedown', function(){ document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag); });
-            resizer.addEventListener('touchstart', function(e){ document.addEventListener('touchmove', drag); document.addEventListener('touchend', stopDrag); });
+            resizer.addEventListener('mousedown', function(){ 
+                document.addEventListener('mousemove', drag); 
+                document.addEventListener('mouseup', stopDrag); 
+            });
+            resizer.addEventListener('touchstart', function(e){ 
+                document.addEventListener('touchmove', drag); 
+                document.addEventListener('touchend', stopDrag); 
+            });
         }
     </script>
 </body>
