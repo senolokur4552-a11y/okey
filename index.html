@@ -661,7 +661,7 @@
             
             ALL_LOGS.forEach(function(log){
                 var d = log.date.split('T')[0];
-                if((!sD || d >= sD) && (!eD || d <= eD)) {
+                if ((sD === "" || d >= sD) && (eD === "" || d <= eD)) {
                     log.players.forEach(function(p){
                         if(!st[p.name]) st[p.name] = { c: 0, tp: 0, tc: 0 };
                         st[p.name].c++; st[p.name].tp += p.pts; st[p.name].tc += p.penalty;
