@@ -87,6 +87,10 @@
         .game-note-box { margin-top: 8px; background: #fff9db; border: 1px dashed #fab005; padding: 8px; border-radius: 6px; font-size: 12px; text-align: left; display: none; }
         .game-note-title { font-weight: bold; color: #e67e22; margin-bottom: 2px; display: block; }
     </style>
+
+    <!-- FIREBASE BULUT KÜTÜPHANELERİ -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -112,7 +116,7 @@
                 <input type="text" id="usernameInput" placeholder="Kullanıcı Adı">
                 <input type="password" id="passwordInput" placeholder="Şifre">
                 <button class="submit-action" id="loginSubmitBtn">Giriş Yap</button>
-                <p style="font-size:0.7rem; color:#666; margin-top:8px;">Varsayılan Admin: admin / 1234</p>
+                <p style="font-size:0.7rem; color:#666; margin-top:8px;"/p>
             </div>
             
             <!-- Kayıt -->
@@ -188,7 +192,7 @@
                         <tbody id="statBody"></tbody>
                     </table>
                 </div>
-                <button onclick="istatistikSifirla()" style="background:#dc3545;color:#fff;border:none;padding:10px;margin-top:8px;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">KİŞİSEL İSTATİSTİKLERİ TEMİZLE</button>
+                <button onclick="istatistikSifirla()" style="background:#dc3545;color:#fff;border:none;padding:10px;margin-top:8px;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">ORTAK İSTATİSTİKLERİ TEMİZLE</button>
             </div>
 
             <!-- GEÇMİŞ OYUNLAR -->
@@ -225,12 +229,52 @@
     </main>
 
     <script>
-        // --- KULLANICI VE AUTH SİSTEMİ ---
-        let USERS = JSON.parse(localStorage.getItem('portal_users')) || { 'admin': { pass: '1234', role: 'ADMIN' } };
+        // --- 1. FIREBASE BAĞLANTI BİLGİLERİ ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBS_RtpUjjyT3AtapCh8TituSDrdd9VT9k",
+          authDomain: "okey-skor.firebaseapp.com",
+          projectId: "okey-skor",
+          storageBucket: "okey-skor.firebasestorage.app",
+          messagingSenderId: "566965349168",
+          appId: "1:566965349168:web:d1d54edb6d8777a1cdb6f5",
+          measurementId: "G-2TP22EY8FN"
+        };
+
+        // Firebase Başlatma
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Global Değişkenler
+        let USERS = {};
+        let ALL_LOGS = [];
         const loginModal = document.getElementById('loginModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
 
-        // Delegated click event: ID çatışmalarını engeller ve her zaman tetiklenir
+        // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
+        function initRealtimeSync() {
+            // Kullanıcıları Çek
+            db.collection("users").onSnapshot((snapshot) => {
+                USERS = { 'admin': { pass: '1234', role: 'ADMIN' } }; // Varsayılan admin daima var
+                snapshot.forEach((doc) => {
+                    USERS[doc.id] = doc.data();
+                });
+                updateUI();
+            });
+
+            // Tüm Oyun Geçmişini Çek
+            db.collection("game_logs").orderBy("date", "desc").onSnapshot((snapshot) => {
+                ALL_LOGS = [];
+                snapshot.forEach((doc) => {
+                    ALL_LOGS.push(doc.data());
+                });
+                // Aktif bir sekmedeysek listeleri güncelle
+                if(document.getElementById('btn3').classList.contains('active')) istatistikYenile();
+                if(document.getElementById('btn4').classList.contains('active')) gecmisOyunlariListele();
+            });
+        }
+        initRealtimeSync();
+
+        // --- AUTH & UI KONTROLLERİ ---
         document.addEventListener('click', function(e) {
             if(e.target && (e.target.id === 'openLoginModalBtn' || e.target.id === 'openLoginModalBtn2' || e.target.id === 'setupLoginBtn')) {
                 loginModal.style.display = 'flex';
@@ -269,7 +313,7 @@
             }
         }
 
-        // --- GÜVENLİ KULLANICI OLUŞTURMA (ADMIN ŞİFRELİ) ---
+        // --- HESAP OLUŞTURMA (BULUTA YAZAR) ---
         document.getElementById('registerSubmitBtn').addEventListener('click', () => {
             const user = document.getElementById('regUsernameInput').value.trim().toLowerCase();
             const pass = document.getElementById('regPasswordInput').value;
@@ -282,13 +326,14 @@
                 return;
             }
 
-            USERS[user] = { pass: pass, role: 'USER' };
-            localStorage.setItem('portal_users', JSON.stringify(USERS));
-            alert('Kullanıcı hesabı başarıyla oluşturuldu! Giriş yapabilirsiniz.');
-            switchModalTab('login');
+            db.collection("users").doc(user).set({ pass: pass, role: 'USER' })
+            .then(() => {
+                alert('Kullanıcı hesabı başarıyla bulutta oluşturuldu! Giriş yapabilirsiniz.');
+                switchModalTab('login');
+            });
         });
 
-        // --- KULLANICI ŞİFRE DEĞİŞTİRME ---
+        // --- ŞİFRE DEĞİŞTİRME (BULUTTA GÜNCELER) ---
         document.getElementById('changePassSubmitBtn').addEventListener('click', () => {
             const user = document.getElementById('cpUsernameInput').value.trim().toLowerCase();
             const oldPass = document.getElementById('cpOldPasswordInput').value;
@@ -298,14 +343,14 @@
             if(!USERS[user]) { alert('Böyle bir kullanıcı bulunamadı!'); return; }
             if(USERS[user].pass !== oldPass) { alert('Mevcut şifreniz hatalı!'); return; }
 
-            USERS[user].pass = newPass;
-            localStorage.setItem('portal_users', JSON.stringify(USERS));
-            alert('Şifreniz başarıyla güncellendi! Yeni şifrenizle giriş yapabilirsiniz.');
-            switchModalTab('login');
-            
-            document.getElementById('cpUsernameInput').value = '';
-            document.getElementById('cpOldPasswordInput').value = '';
-            document.getElementById('cpNewPasswordInput').value = '';
+            db.collection("users").doc(user).update({ pass: newPass })
+            .then(() => {
+                alert('Şifreniz başarıyla güncellendi!');
+                switchModalTab('login');
+                document.getElementById('cpUsernameInput').value = '';
+                document.getElementById('cpOldPasswordInput').value = '';
+                document.getElementById('cpNewPasswordInput').value = '';
+            });
         });
 
         document.getElementById('loginSubmitBtn').addEventListener('click', () => {
@@ -346,7 +391,6 @@
                 }
             }
         }
-        updateUI();
 
         // --- OKEY SKOR SİSTEMİ ---
         var cfg = { p: 4, e: 9, v: 250 };
@@ -458,18 +502,13 @@
 
         function yeniEleGec(tid) {
             var el = aktifEl[tid];
-            if(el >= cfg.e) {
-                alert("Zaten son eldesiniz!");
-                return;
-            }
+            if(el >= cfg.e) { alert("Zaten son eldesiniz!"); return; }
 
             var tr = document.getElementById('row-' + tid + '-' + el);
             if(tr) tr.classList.add('row-played');
 
             var currentInputs = document.querySelectorAll('#row-' + tid + '-' + el + ' input');
-            currentInputs.forEach(inp => {
-                inp.readOnly = true; 
-            });
+            currentInputs.forEach(inp => { inp.readOnly = true; });
 
             aktifEl[tid]++;
             var sonrakiEl = aktifEl[tid];
@@ -477,7 +516,6 @@
             nextInputs.forEach(inp => inp.disabled = false);
 
             if(nextInputs.length > 0) nextInputs[0].focus();
-
             hesapla(tid);
         }
 
@@ -487,13 +525,9 @@
 
             for(var i=0; i<cfg.p; i++) {
                 var inputs = document.querySelectorAll('.in-' + tid + '-' + i);
-                for(var j=0; j<inputs.length; j++) {
-                    t[i] += coz(inputs[j].value);
-                }
+                for(var j=0; j<inputs.length; j++) t[i] += coz(inputs[j].value);
                 var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
-                for(var m=0; m<spans.length; m++) {
-                    t[i] += coz(spans[m].innerText);
-                }
+                for(var m=0; m<spans.length; m++) t[i] += coz(spans[m].innerText);
                 var cell = document.getElementById('t-' + tid + '-' + i);
                 if(cell) cell.innerText = t[i];
             }
@@ -517,24 +551,17 @@
         function bindLongPress(tid) {
             var inputs = document.querySelectorAll('[class*="in-' + tid + '-"]');
             inputs.forEach(inp => {
-                attachLongPressEvent(inp, function() {
-                    duzenleMenuUst(inp, tid);
-                });
+                attachLongPressEvent(inp, function() { duzenleMenuUst(inp, tid); });
             });
         }
 
         function attachLongPressEvent(element, callback) {
             let timer;
-            const runCallback = (e) => {
-                e.preventDefault();
-                callback();
-            };
-
+            const runCallback = (e) => { e.preventDefault(); callback(); };
             const start = (e) => {
                 if (e.type === 'click' && e.button !== 0) return;
                 timer = setTimeout(() => runCallback(e), 800);
             };
-
             const cancel = () => { clearTimeout(timer); };
 
             element.addEventListener('mousedown', start);
@@ -549,40 +576,31 @@
         function duzenleMenuUst(inputEl, tid) {
             var eskiDeger = inputEl.value;
             var elNo = inputEl.getAttribute('data-el');
-            var yeniDeger = prompt(elNo + ". El Hücre Değerini Düzenle:\n(Örn: 20, 100x, XX, -50)\nTamamen silmek için boş bırakın.", eskiDeger);
-            
+            var yeniDeger = prompt(elNo + ". El Hücre Değerini Düzenle:\n(Örn: 20, 100x, XX, -50)", eskiDeger);
             if (yeniDeger !== null) {
-                var temizlenmis = yeniDeger.replace(/[^0-9xxXX-]/g, '');
-                inputEl.value = temizlenmis;
+                inputEl.value = yeniDeger.replace(/[^0-9xxXX-]/g, '');
                 hesapla(tid);
-                alert("El cezası güncellendi.");
             }
         }
 
         function duzenleMenuGecmis(itemId) {
             var item = document.getElementById(itemId);
             if(!item) return;
-            var eskiDeger = item.innerText;
-            
-            var secim = prompt("Geçmiş Cezasını Düzenle:\nYeni değeri yazın (Örn: 50x) veya silmek için 'SIL' yazın:", eskiDeger);
-            
+            var secim = prompt("Geçmiş Cezasını Düzenle (Silmek için SIL yazın):", item.innerText);
             if (secim !== null) {
-                if(secim.trim().toUpperCase() === 'SIL') {
-                    item.remove();
-                } else {
-                    item.innerText = secim.replace(/[^0-9xxXX-]/g, '');
-                }
+                if(secim.trim().toUpperCase() === 'SIL') item.remove();
+                else item.innerText = secim.replace(/[^0-9xxXX-]/g, '');
                 hesapla(2);
-                alert("Geçmiş güncellendi.");
             }
         }
 
+        // --- OYUNU BULUTA KAYDETME ---
         function oyunuKaydet() {
             var currentUser = sessionStorage.getItem('currentUser');
             if(!currentUser) { alert("Oturum açılmamış!"); return; }
             if(!confirm("İstatistiğe kaydedilsin mi? Tablo sıfırlanacak!")) return;
             
-            var tabelaciNotu = prompt("Oyunla ilgili bir not girin (İsteğe bağlı, boş bırakabilirsiniz):", "");
+            var tabelaciNotu = prompt("Oyunla ilgili bir not girin (İsteğe bağlı):", "");
             if(tabelaciNotu === null) tabelaciNotu = "";
             
             var tFinal = [];
@@ -605,27 +623,24 @@
                 game.players.push({ name: names[i], penalty: tFinal[i], pts: dynamicPts < 0 ? 0 : dynamicPts });
             }
 
-            let userLogsKey = 'okey_logs_' + currentUser;
-            let userLogs = JSON.parse(localStorage.getItem(userLogsKey)) || [];
-            userLogs.push(game);
-            localStorage.setItem(userLogsKey, JSON.stringify(userLogs));
-
-            alert("Verileriniz kaydedildi!");
-            location.reload();
+            // Buluta ekleme (Tüm cihazlar görsün diye)
+            db.collection("game_logs").add(game)
+            .then(() => {
+                alert("Veriler ortak bulut veritabanına başarıyla kaydedildi!");
+                location.reload();
+            })
+            .catch((err) => {
+                alert("Kayıt sırasında hata oluştu: " + err);
+            });
         }
 
+        // --- BULUTTAN GELEN VERİLERLE İSTATİSTİK YENİLEME ---
         function istatistikYenile() {
-            var currentUser = sessionStorage.getItem('currentUser');
-            if(!currentUser) {
-                document.getElementById('statBody').innerHTML = '<tr><td colspan="6" style="color:red; padding:15px;">İstatistikleri görmek için giriş yapın.</td></tr>';
-                return;
-            }
             var sD = document.getElementById('dStart').value;
             var eD = document.getElementById('dEnd').value;
-            let userLogsKey = 'okey_logs_' + currentUser;
-            let logs = JSON.parse(localStorage.getItem(userLogsKey)) || [];
             var st = {};
-            logs.forEach(function(log){
+            
+            ALL_LOGS.forEach(function(log){
                 var d = log.date.split('T')[0];
                 if((!sD || d >= sD) && (!eD || d <= eD)) {
                     log.players.forEach(function(p){
@@ -634,9 +649,11 @@
                     });
                 }
             });
+
             var list = Object.keys(st).map(function(n){
                 return { n:n, c:st[n].c, ap:(st[n].tp/st[n].c).toFixed(2), ac:(st[n].tc/st[n].c).toFixed(1), tp:st[n].tp, tc:st[n].tc };
             }).sort(function(a,b){ return b.ap - a.ap; });
+
             var h = "";
             if(list.length === 0) {
                 h = '<tr><td colspan="6" style="color:#666; padding:15px;">Belirtilen tarihte istatistik bulunamadı.</td></tr>';
@@ -648,41 +665,36 @@
             document.getElementById('statBody').innerHTML = h;
         }
 
-        // --- GÜVENLİ İSTATİSTİK SIFIRLAMA (ADMIN ŞİFRELİ) ---
+        // --- BULUTTAKİ VERİLERİ SIFIRLAMA ---
         function istatistikSifirla() {
-            var currentUser = sessionStorage.getItem('currentUser');
-            if(!currentUser) return;
-            
-            if(confirm("Tüm oyun geçmişiniz silinecek. Emin misiniz?")) {
+            if(confirm("DİKKAT! Buluttaki tüm ortak oyun geçmişi silinecek. Emin misiniz?")) {
                 var adminSifre = prompt("İstatistikleri kalıcı olarak silmek için lütfen ADMIN şifresini girin:");
                 if (adminSifre !== USERS['admin'].pass) {
                     alert("Yetkisiz İşlem! Admin şifresi hatalı.");
                     return;
                 }
                 
-                localStorage.removeItem('okey_logs_' + currentUser);
-                istatistikYenile();
-                if(document.getElementById('btn4').classList.contains('active')) gecmisOyunlariListele();
-                alert("Tüm veriler başarıyla sıfırlandı.");
+                // Firestore'daki tüm logları temizle
+                db.collection("game_logs").get().then((snapshot) => {
+                    let batch = db.batch();
+                    snapshot.docs.forEach((doc) => {
+                        batch.delete(doc.ref);
+                    });
+                    return batch.commit();
+                }).then(() => {
+                    alert("Tüm ortak veriler başarıyla sıfırlandı.");
+                });
             }
         }
 
+        // --- BULUTTAKİ GEÇMİŞ OYUNLARI LİSTELEME ---
         function gecmisOyunlariListele() {
-            var currentUser = sessionStorage.getItem('currentUser');
             var container = document.getElementById('gameLogsList');
-            if(!currentUser) {
-                container.innerHTML = '<div style="color:red; text-align:center; padding:10px;">Geçmişi görmek için giriş yapın.</div>';
-                return;
-            }
-
             var sD = document.getElementById('hStart').value;
             var eD = document.getElementById('hEnd').value;
 
-            let userLogsKey = 'okey_logs_' + currentUser;
-            let logs = JSON.parse(localStorage.getItem(userLogsKey)) || [];
-            
             var filtrelenmisLogs = [];
-            logs.forEach(function(item, index) {
+            ALL_LOGS.forEach(function(item, index) {
                 var d = item.date.split('T')[0];
                 if((!sD || d >= sD) && (!eD || d <= eD)) {
                     filtrelenmisLogs.push({ oyun: item, orijinalIndex: index });
@@ -690,7 +702,7 @@
             });
             
             if(filtrelenmisLogs.length === 0) {
-                container.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">Belirtilen tarihte oyun bulunamadı.</div>';
+                container.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">Oyun bulunamadı.</div>';
                 document.getElementById('pastGameTableBody').innerHTML = '<tr><td colspan="4" style="color:#999; padding:15px;">Kayıt bulunamadı.</td></tr>';
                 document.getElementById('selectedGameTitle').innerText = 'İncelemek İçin Yukarıdan Bir Oyun Seçin';
                 document.getElementById('gameNoteDisplay').style.display = "none";
@@ -698,8 +710,7 @@
             }
 
             var html = "";
-            for(var i = filtrelenmisLogs.length - 1; i >= 0; i--) {
-                var current = filtrelenmisLogs[i];
+            filtrelenmisLogs.forEach(function(current) {
                 var log = current.oyun;
                 var dObj = new Date(log.date);
                 var tarihStr = dObj.toLocaleDateString('tr-TR') + " - " + dObj.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
@@ -709,17 +720,12 @@
                 html += '  <span class="game-log-date">📅 ' + tarihStr + '</span>';
                 html += '  <div class="game-log-summary">👥 ' + ozetOyuncular + '</div>';
                 html += '</div>';
-            }
+            });
             container.innerHTML = html;
         }
 
         function gecmisOyunDetayGoster(idx) {
-            var currentUser = sessionStorage.getItem('currentUser');
-            if(!currentUser) return;
-
-            let userLogsKey = 'okey_logs_' + currentUser;
-            let logs = JSON.parse(localStorage.getItem(userLogsKey)) || [];
-            var g = logs[idx];
+            var g = ALL_LOGS[idx];
             if(!g) return;
 
             var dObj = new Date(g.date);
