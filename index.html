@@ -653,37 +653,111 @@
             });
         }
 
-        // --- BULUTTAN GELEN VERİLERLE İSTATİSTİK YENİLEME ---
+        // --- BULUTTAN GELEN VERİLERLE GELİŞMİŞ İSTATİSTİK YENİLEME ---
         function istatistikYenile() {
             var sD = document.getElementById('dStart').value;
             var eD = document.getElementById('dEnd').value;
             var st = {};
             
+            // Genel "En'leri" bulmak için yardımcı değişkenler
+            var enCokCezaAlan = { name: "-", value: 0 };
+            var enCokBatan = { name: "-", value: 0 }; // 100x veya büyük cezalar alan durumlar için (tercihe göre)
+
             ALL_LOGS.forEach(function(log){
                 var d = log.date.split('T')[0];
-                if ((sD === "" || d >= sD) && (eD === "" || d <= eD)) {
+                if((sD === "" || d >= sD) && (eD === "" || d <= eD)) {
                     log.players.forEach(function(p){
-                        if(!st[p.name]) st[p.name] = { c: 0, tp: 0, tc: 0 };
-                        st[p.name].c++; st[p.name].tp += p.pts; st[p.name].tc += p.penalty;
+                        if(!st[p.name]) st[p.name] = { c: 0, tp: 0, tc: 0, maxCeza: 0 };
+                        
+                        st[p.name].c++; 
+                        st[p.name].tp += p.pts; 
+                        st[p.name].tc += p.penalty;
+
+                        // Tek bir oyunda alınan en yüksek cezayı takip et
+                        if(p.penalty > st[p.name].maxCeza) {
+                            st[p.name].maxCeza = p.penalty;
+                        }
                     });
                 }
             });
 
             var list = Object.keys(st).map(function(n){
-                return { n:n, c:st[n].c, ap:(st[n].tp/st[n].c).toFixed(2), ac:(st[n].tc/st[n].c).toFixed(1), tp:st[n].tp, tc:st[n].tc };
-            }).sort(function(a,b){ return b.ap - a.ap; });
+                return { 
+                    n: n, 
+                    c: st[n].c, 
+                    ap: (st[n].tp / st[n].c).toFixed(2), 
+                    ac: (st[n].tc / st[n].c).toFixed(1), 
+                    tp: st[n].tp, 
+                    tc: st[n].tc,
+                    maxC: st[n].maxCeza 
+                };
+            }).sort(function(a, b){ return b.ap - a.ap; });
 
+            // Raporlama kartları için verileri analiz et
+            var rekorCeza = 0, rekorCezaName = "-";
+            var enCokMac = 0, enKorkusuzName = "-";
+
+            list.forEach(function(player) {
+                // Tek maçta en çok ceza yiyen rekor sahibi
+                if(player.maxC > rekorCeza) {
+                    rekorCeza = player.maxC;
+                    rekorCezaName = player.n;
+                }
+                // En çok masaya oturan/oynayan
+                if(player.c > enCokMac) {
+                    enCokMac = player.c;
+                    enKorkusuzName = player.n;
+                }
+            });
+
+            // 1. Ana Lig Tablosunu Oluştur
             var h = "";
             if(list.length === 0) {
                 h = '<tr><td colspan="6" style="color:#666; padding:15px;">Belirtilen tarihte istatistik bulunamadı.</td></tr>';
             } else {
                 list.forEach(function(i){
-                    h += '<tr><td>'+i.n+'</td><td>'+i.c+'</td><td style="color:#28a745;font-weight:bold;">'+i.ap+'</td><td>'+i.ac+'</td><td>'+i.tp+'</td><td>'+i.tc+'</td></tr>';
+                    h += '<tr>';
+                    h += '  <td style="text-transform:capitalize; font-weight:bold;">'+i.n+'</td>';
+                    h += '  <td>'+i.c+'</td>';
+                    h += '  <td style="color:#28a745; font-weight:bold;">'+i.ap+'</td>';
+                    h += '  <td style="color:#e67e22;">'+i.ac+'</td>';
+                    h += '  <td>'+i.tp+'</td>';
+                    h += '  <td>'+i.tc+'</td>';
+                    h += '</tr>';
                 });
             }
             document.getElementById('statBody').innerHTML = h;
-        }
 
+            // 2. "En Değerli / En Çok Ceza Alan" Özet Panelini Güncelle
+            // İstatistik sayfasında bu kartları basacağımız bir div olduğunu varsayarak dolduruyoruz
+            var reportContainer = document.getElementById('statReports');
+            if(reportContainer && list.length > 0) {
+                var enIyiPlayer = list[0]; // Sıralama puana göre en üstteki
+                var enCokCezaYiyenTotal = list.slice().sort((a,b) => b.tc - a.tc)[0]; // Toplamda en çok ceza yiyen
+
+                reportContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid #28a745; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">🏆 Lider (Ort. Puan)</span>
+                            <strong style="text-transform: capitalize; color: #28a745; font-size: 15px;">${enIyiPlayer.n}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${enIyiPlayer.ap} Puan</span>
+                        </div>
+                        <div style="background: rgba(217, 83, 79, 0.1); border: 1px solid #d9534f; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">👹 En Çok Ceza Alan (Toplam)</span>
+                            <strong style="text-transform: capitalize; color: #d9534f; font-size: 15px;">${enCokCezaYiyenTotal.n}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${enCokCezaYiyenTotal.tc} Ceza</span>
+                        </div>
+                        <div style="background: rgba(230, 126, 34, 0.1); border: 1px solid #e67e22; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">💥 Tek Maç Ceza Rekoru</span>
+                            <strong style="text-transform: capitalize; color: #e67e22; font-size: 15px;">${rekorCezaName}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${rekorCeza} Ceza</span>
+                        </div>
+                    </div>
+                `;
+            } else if (reportContainer) {
+                reportContainer.innerHTML = ""; // Veri yoksa temizle
+            }
+        }
         // --- BULUTTAKİ VERİLERİ SIFIRLAMA ---
         function istatistikSifirla() {
             if(confirm("DİKKAT! Buluttaki tüm ortak oyun geçmişi silinecek. Emin misiniz?")) {
