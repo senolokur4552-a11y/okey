@@ -1,4 +1,341 @@
-// --- ŞİFRE DEĞİŞTİRME (BULUTTA GÜNCELER) ---
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Okey Skor & İstatistik Portalı</title>
+    <style>
+        :root { --bg: #f4f7f9; --card: #ffffff; --border: #dee2e6; --dark: #1a1d21; --accent: #007bff; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+        
+        header {
+            background-color: #333; color: #fff; padding: 12px 15px;
+            text-align: center; flex-shrink: 0; z-index: 1000;
+        }
+        h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.5px; }
+        .auth-top-btn { background-color: #ffdd57; color: #333; border: none; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
+        .logout-btn-top { background-color: #e74c3c; color: #fff; border: none; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
+
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); z-index: 4000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 8px; width: 320px; text-align: center;
+            position: relative; box-sizing: border-box;
+        }
+        .modal-tabs { display: flex; margin-bottom: 15px; border-bottom: 1px solid #ccc; }
+        .modal-tab { flex: 1; padding: 10px 2px; cursor: pointer; font-weight: bold; color: #666; font-size: 0.8rem; text-align: center; }
+        .modal-tab.active { color: #333; border-bottom: 3px solid #ffdd57; }
+        .modal-content input { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .modal-content button.submit-action { width: 100%; padding: 10px; background-color: #ffdd57; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 10px; }
+        .close-modal { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #333; }
+
+        main { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding: 8px; }
+        .card { background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 8px 2px; cursor: pointer; border: none; background: #eee; font-weight: bold; border-radius: 6px; font-size: 11px; text-align: center; white-space: nowrap; }
+        .tab-btn.active { background: var(--accent); color: white; }
+        .content { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+        .content.active { display: flex; }
+        
+        .upper-table-wrapper { height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; }
+        .lower-table-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+        .resizer { height: 8px; cursor: ns-resize; background: #dee2e6; margin: 4px 0; border-radius: 4px; flex-shrink: 0; }
+        
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; background: #fff; }
+        th, td { border: 1px solid var(--border); padding: 3px 2px; text-align: center; font-size: 12px; position: relative; }
+        th { background: #f8f9fa; position: sticky; top: 0; z-index: 10; padding: 4px 2px; }
+        
+        .col-el { width: 40px; font-weight: bold; background: #f1f3f5; }
+        input.score-input { width: 90%; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: center; background: #e0e0e0; color: #000; font-size: 13px; box-sizing: border-box; }
+        
+        input.score-input:disabled, input.score-input[readonly] { border-color: #e4e4e4; }
+        input.score-input:disabled { background: #f1f3f5; color: #999; cursor: not-allowed; }
+        input.score-input[readonly] { cursor: pointer; }
+
+        .name-input { background: #fff9db !important; border-color: #fab005; font-weight: bold; }
+        
+        .total-row td { background: var(--dark); color: #fff; padding: 6px 2px; font-weight: bold; border-top: 2px solid var(--accent); }
+        .rank-0 { color: #34c759; font-size: 1.15em; font-weight: bold; }
+        .rank-1 { color: #007aff; font-size: 1.1em; }
+        .rank-2 { color: #ff2d55; font-size: 1.05em; }
+        .rank-3 { color: #ff3b30; font-size: 1.05em; font-weight: bold; }
+        
+        .btn-action-group { display: flex; gap: 5px; margin-top: 5px; flex-shrink: 0; }
+        .btn-next-el { flex: 1; background: #007bff; color: white; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save { flex: 1; background: #28a745; color: white; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .setup-screen { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        
+        .history-item { margin-bottom: 2px; border-bottom: 1px solid #eee; padding: 3px 0; display: block; font-weight: bold; font-size: 12px; background: #f8f9fa; border-radius: 4px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+        .history-item:hover { background: #e9ecef; }
+        
+        .row-played { background: #ebfbee; }
+        .row-played input { background: #d3f9d8 !important; color: #2b8a3e !important; }
+
+        .setup-login-box {
+            background: #f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;
+        }
+
+        .game-logs-list { display: flex; flex-direction: column; gap: 6px; }
+        .game-log-card { background: #f8f9fa; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; transition: background 0.2s; text-align: left; }
+        .game-log-card:hover { background: #e9ecef; }
+        .game-log-date { font-weight: bold; color: var(--dark); font-size: 12px; display: block; margin-bottom: 4px; border-bottom: 1px solid #dee2e6; padding-bottom: 2px; }
+        .game-log-summary { font-size: 11px; color: #555; display: flex; flex-wrap: wrap; gap: 6px; }
+        .view-score-title { background: #e2e3e5; color: #383d41; font-weight: bold; padding: 8px; border-radius: 6px; text-align: center; margin-bottom: 6px; font-size: 12px; }
+        
+        .game-note-box { margin-top: 8px; background: #fff9db; border: 1px dashed #fab005; padding: 8px; border-radius: 6px; font-size: 12px; text-align: left; display: none; }
+        .game-note-title { font-weight: bold; color: #e67e22; margin-bottom: 2px; display: block; }
+    </style>
+
+    <!-- FIREBASE BULUT KÜTÜPHANELERİ -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Okey Skor Portalı</h1>
+        <div id="authHeaderArea">
+            <button class="auth-top-btn" id="openLoginModalBtn">🔑 Üye İşlemleri</button>
+        </div>
+    </header>
+
+    <!-- GİRİŞ / KAYIT / ŞİFRE DEĞİŞTİRME MODALI -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModalBtn">&times;</span>
+            <div class="modal-tabs">
+                <div class="modal-tab active" id="tabLogin" onclick="switchModalTab('login')">Giriş Yap</div>
+                <div class="modal-tab" id="tabRegister" onclick="switchModalTab('register')">Kayıt Ol</div>
+                <div class="modal-tab" id="tabChangePass" onclick="switchModalTab('changepass')">Şifre Değiştir</div>
+            </div>
+            
+            <!-- Giriş -->
+            <div id="loginFormSection">
+                <input type="text" id="usernameInput" placeholder="Kullanıcı Adı">
+                <input type="password" id="passwordInput" placeholder="Şifre">
+                <button class="submit-action" id="loginSubmitBtn">Giriş Yap</button>
+                <p style="font-size:0.7rem; color:#666; margin-top:8px;"/p>
+            </div>
+            
+            <!-- Kayıt -->
+            <div id="registerFormSection" style="display: none;">
+                <input type="text" id="regUsernameInput" placeholder="Yeni Kullanıcı Adı">
+                <input type="password" id="regPasswordInput" placeholder="Şifre Oluştur">
+                <button class="submit-action" id="registerSubmitBtn">Hesap Oluştur</button>
+                <p style="font-size:0.65rem; color:#c0392b; margin-top:6px;">* Güvenlik nedeniyle Yönetici onayı (şifresi) gerekecektir.</p>
+            </div>
+
+            <!-- Şifre Değiştirme -->
+            <div id="changePassFormSection" style="display: none;">
+                <input type="text" id="cpUsernameInput" placeholder="Kullanıcı Adınız">
+                <input type="password" id="cpOldPasswordInput" placeholder="Mevcut Şifre">
+                <input type="password" id="cpNewPasswordInput" placeholder="Yeni Şifre">
+                <button class="submit-action" id="changePassSubmitBtn">Şifreyi Güncelle</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KURULUM EKRANI -->
+    <div id="setup" class="setup-screen">
+        <div style="background:#fff; padding:20px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); text-align:center; width: 80%; max-width: 320px;">
+            <h2 style="color:var(--accent); margin-top:0; font-size:1.3rem;">OKEY YÖNETİM</h2>
+            
+            <div class="setup-login-box" id="setupLoginArea"></div>
+
+            Oyuncu Sayısı: <input type="number" id="pCount" value="4" style="width:70px; background:#fff; text-align:center; padding:6px; margin:5px 0;"> <br>
+            El Sayısı: <input type="number" id="eCount" value="9" style="width:70px; background:#fff; text-align:center; padding:6px; margin:5px 0;"> <br>
+            "x" Değeri: <input type="number" id="plusVal" value="250" style="width:70px; background:#fff; text-align:center; padding:6px; margin:5px 0;"> <br><br>
+            <button onclick="baslat()" style="width:100%; padding:12px; background:#28a745; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">OYUNA BAŞLAT</button>
+        </div>
+    </div>
+
+    <!-- ANA UYGULAMA -->
+    <main>
+        <div class="card" id="mainUI" style="display:none;">
+            <div class="tabs">
+                <button id="btn2" class="tab-btn active" onclick="sekmeAc(2)">🟢 OYUN MASASI</button>
+                <button id="btn3" class="tab-btn" onclick="sekmeAc(3)">📊 İSTATİSTİK</button>
+                <button id="btn4" class="tab-btn" onclick="sekmeAc(4)">📅 GEÇMİŞ OYUNLAR</button>
+            </div>
+
+            <!-- SEKME 2 (ANA OYUN MASASI) -->
+            <div id="tab2" class="content active">
+                <div class="upper-table-wrapper" id="upWrap2">
+                    <table id="table2"></table>
+                </div>
+                <table><tr id="totalRow2" class="total-row"></tr></table>
+                <div class="resizer" id="resizer"></div>
+                <div class="lower-table-wrapper" id="lowWrap2">
+                    <table id="lowerTable">
+                        <thead id="lowerHead"></thead>
+                        <tbody id="lowerBody"><tr id="historyRow"></tr></tbody>
+                    </table>
+                </div>
+                <div class="btn-action-group">
+                    <button class="btn-next-el" id="btnNextElMasa2" onclick="yeniEleGec(2)">YENİ ELE GEÇ</button>
+                    <button class="btn-save" onclick="oyunuKaydet()">KAYDET VE BİTİR</button>
+                </div>
+            </div>
+
+            <!-- İSTATİSTİK -->
+            <div id="tab3" class="content">
+                <div style="background:#eee; padding:6px; border-radius:8px; margin-bottom:5px; font-size:11px; display:flex; gap:5px;">
+                    <input type="date" id="dStart" style="flex:1; background:#fff; padding:4px;"> 
+                    <input type="date" id="dEnd" style="flex:1; background:#fff; padding:4px;">
+                    <button onclick="istatistikYenile()" style="padding:0 8px; cursor:pointer;">Ara</button>
+                </div>
+                <div class="upper-table-wrapper" style="flex-grow:1; height:auto;">
+                    <table>
+                        <thead><tr><th>Ad</th><th>O</th><th>Ort.P</th><th>Ort.C</th><th>TP</th><th>TC</th></tr></thead>
+                        <tbody id="statBody"></tbody>
+                    </table>
+                </div>
+                <button onclick="istatistikSifirla()" style="background:#dc3545;color:#fff;border:none;padding:10px;margin-top:8px;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">ORTAK İSTATİSTİKLERİ TEMİZLE</button>
+            </div>
+
+            <!-- GEÇMİŞ OYUNLAR -->
+            <div id="tab4" class="content">
+                <div style="background:#eee; padding:6px; border-radius:8px; margin-bottom:5px; font-size:11px; display:flex; gap:5px;">
+                    <input type="date" id="hStart" style="flex:1; background:#fff; padding:4px;"> 
+                    <input type="date" id="hEnd" style="flex:1; background:#fff; padding:4px;">
+                    <button onclick="gecmisOyunlariListele()" style="padding:0 8px; cursor:pointer;">Ara</button>
+                </div>
+                
+                <div class="upper-table-wrapper" style="height: 150px; flex-shrink: 0; margin-bottom: 8px;">
+                    <div id="gameLogsList" class="game-logs-list" style="padding: 6px;"></div>
+                </div>
+                
+                <div class="view-score-title" id="selectedGameTitle">İncelemek İçin Yukarıdan Bir Oyun Seçin</div>
+                
+                <div class="lower-table-wrapper" style="flex-grow: 1;">
+                    <table>
+                        <thead>
+                            <tr><th>Sıra</th><th>Oyuncu Adı</th><th>Toplam Ceza</th><th>Kazanılan Puan</th></tr>
+                        </thead>
+                        <tbody id="pastGameTableBody">
+                            <tr><td colspan="4" style="color:#999; padding:15px;">Henüz bir oyun seçilmedi.</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <div id="gameNoteDisplay" class="game-note-box">
+                        <span class="game-note-title">📝 Tabelacı Notu:</span>
+                        <span id="gameNoteText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. FIREBASE BAĞLANTI BİLGİLERİ ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBS_RtpUjjyT3AtapCh8TituSDrdd9VT9k",
+          authDomain: "okey-skor.firebaseapp.com",
+          projectId: "okey-skor",
+          storageBucket: "okey-skor.firebasestorage.app",
+          messagingSenderId: "566965349168",
+          appId: "1:566965349168:web:d1d54edb6d8777a1cdb6f5",
+          measurementId: "G-2TP22EY8FN"
+        };
+
+        // Firebase Başlatma
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Global Değişkenler
+        let USERS = {};
+        let ALL_LOGS = [];
+        const loginModal = document.getElementById('loginModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
+        // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
+	function initRealtimeSync() {
+            // Kullanıcıları Çek
+            db.collection("users").onSnapshot((snapshot) => {
+                USERS = { 'admin': { pass: '1234', role: 'ADMIN' } }; // Varsayılan admin daima var
+                snapshot.forEach((doc) => {
+                    USERS[doc.id] = doc.data();
+                });
+                updateUI();
+            });
+
+
+            // Tüm Oyun Geçmişini Çek
+            db.collection("game_logs").orderBy("date", "desc").onSnapshot((snapshot) => {
+                ALL_LOGS = [];
+                snapshot.forEach((doc) => {
+                    ALL_LOGS.push(doc.data());
+                });
+                // Aktif bir sekmedeysek listeleri güncelle
+                if(document.getElementById('btn3').classList.contains('active')) istatistikYenile();
+                if(document.getElementById('btn4').classList.contains('active')) gecmisOyunlariListele();
+            });
+        }
+        initRealtimeSync();
+
+        // --- AUTH & UI KONTROLLERİ ---
+        document.addEventListener('click', function(e) {
+            if(e.target && (e.target.id === 'openLoginModalBtn' || e.target.id === 'openLoginModalBtn2' || e.target.id === 'setupLoginBtn')) {
+                loginModal.style.display = 'flex';
+                switchModalTab('login');
+            }
+        });
+
+        if(closeModalBtn) closeModalBtn.addEventListener('click', () => loginModal.style.display = 'none');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const bugün = new Date().toISOString().split('T')[0];
+            document.getElementById('dStart').value = bugün;
+            document.getElementById('dEnd').value = bugün;
+            document.getElementById('hStart').value = bugün;
+            document.getElementById('hEnd').value = bugün;
+        });
+
+        function switchModalTab(type) {
+            document.getElementById('tabLogin').classList.remove('active');
+            document.getElementById('tabRegister').classList.remove('active');
+            document.getElementById('tabChangePass').classList.remove('active');
+            
+            document.getElementById('loginFormSection').style.display = 'none';
+            document.getElementById('registerFormSection').style.display = 'none';
+            document.getElementById('changePassFormSection').style.display = 'none';
+
+            if (type === 'login') {
+                document.getElementById('tabLogin').classList.add('active');
+                document.getElementById('loginFormSection').style.display = 'block';
+            } else if (type === 'register') {
+                document.getElementById('tabRegister').classList.add('active');
+                document.getElementById('registerFormSection').style.display = 'block';
+            } else if (type === 'changepass') {
+                document.getElementById('tabChangePass').classList.add('active');
+                document.getElementById('changePassFormSection').style.display = 'block';
+            }
+        }
+
+        // --- HESAP OLUŞTURMA (BULUTA YAZAR) ---
+        document.getElementById('registerSubmitBtn').addEventListener('click', () => {
+            const user = document.getElementById('regUsernameInput').value.trim().toLowerCase();
+            const pass = document.getElementById('regPasswordInput').value;
+            if(!user || !pass) { alert('Boş alan bırakmayın!'); return; }
+            if(USERS[user]) { alert('Bu kullanıcı adı zaten alınmış!'); return; }
+            
+            var adminSifreKontrol = prompt("Yeni kullanıcı tanımlamak için lütfen Yönetici şifresini girin:");
+            if (adminSifreKontrol !== USERS['admin'].pass) {
+                alert("Yetkisiz Erişim! Yönetici şifresi hatalı.");
+                return;
+            }
+
+            db.collection("users").doc(user).set({ pass: pass, role: 'USER' })
+            .then(() => {
+                alert('Kullanıcı hesabı başarıyla bulutta oluşturuldu! Giriş yapabilirsiniz.');
+                switchModalTab('login');
+            });
+        });
+
+        // --- ŞİFRE DEĞİŞTİRME (BULUTTA GÜNCELER) ---
 document.getElementById('changePassSubmitBtn').addEventListener('click', () => {
     const user = document.getElementById('cpUsernameInput').value.trim().toLowerCase();
     const oldPass = document.getElementById('cpOldPasswordInput').value;
@@ -16,11 +353,11 @@ document.getElementById('changePassSubmitBtn').addEventListener('click', () => {
             role: "ADMIN"
         }, { merge: true })
         .then(() => {
-            alert('ADMIN şifresi başarıyla güncellendi!');
+            alert('Yönetici şifresi başarıyla güncellendi!');
             sifreFormunuSifirla();
         })
         .catch((error) => {
-            console.error("Admin şifre hatası:", error);
+            console.error("Yönetici şifre hatası:", error);
             alert("Şifre güncellenirken bir hata oluştu!");
         });
     } else {
@@ -57,3 +394,514 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
         alert('Hatalı kullanıcı adı veya şifre!');
     }
 });
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            updateUI();
+            document.getElementById('mainUI').style.display = 'none';
+            document.getElementById('setup').style.display = 'flex';
+        }
+
+        function updateUI() {
+            const currentUser = sessionStorage.getItem('currentUser');
+            const setupLoginArea = document.getElementById('setupLoginArea');
+            
+            // Üst header alanını temiz tutuyoruz
+            document.getElementById('authHeaderArea').innerHTML = '';
+
+            // Sekmeler alanını bulup çıkış butonunu oraya dinamik ekleyeceğiz
+            const tabsContainer = document.querySelector('.tabs');
+            
+            // Varsa eski çıkış butonunu temizle
+            const oldLogoutBtn = document.getElementById('dynamicLogoutBtn');
+            if(oldLogoutBtn) oldLogoutBtn.remove();
+
+            if (currentUser) {
+                if(setupLoginArea) {
+                    setupLoginArea.innerHTML = `<span style="color:#28a745; font-weight:bold; font-size:1.1rem;">✓ Oturum Açık: ${currentUser.toUpperCase()}</span>`;
+                }
+                
+                // Mobilde en rahat erişilen yer: Sekmelerin hemen yanı!
+                if(tabsContainer) {
+                    const logoutBtn = document.createElement('button');
+                    logoutBtn.id = 'dynamicLogoutBtn';
+                    logoutBtn.innerText = '❌ Kapat';
+                    logoutBtn.style.cssText = 'background:#e74c3c; color:fff; border:none; padding:0 8px; font-weight:bold; border-radius:6px; font-size:11px; cursor:pointer; height:31px;';
+                    logoutBtn.onclick = logout;
+                    tabsContainer.appendChild(logoutBtn);
+                }
+            } else {
+                if(setupLoginArea) {
+                    setupLoginArea.innerHTML = `
+                        <span style="color:#ff3b30; font-weight:bold; display:block; margin-bottom:10px; font-size:0.95rem;">⚠️ Ortak Veritabanı İçin Giriş Yapın</span>
+                        <button id="setupLoginBtn" style="width:100%; background:#ffdd57; color:#333; border:none; font-weight:bold; padding:12px; border-radius:8px; cursor:pointer; font-size:14px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">🔑 GİRİŞ YAP / HESAP AÇ</button>
+                    `;
+                }
+            }
+        }
+
+        // --- OKEY SKOR SİSTEMİ ---
+        var cfg = { p: 4, e: 9, v: 250 };
+        var aktifEl = { 2: 1 };
+
+        function baslat() {
+            var currentUser = sessionStorage.getItem('currentUser');
+            if(!currentUser) {
+                alert("Lütfen önce giriş yapın!");
+                loginModal.style.display = 'flex';
+                switchModalTab('login');
+                return;
+            }
+            cfg.p = parseInt(document.getElementById('pCount').value) || 4;
+            cfg.e = parseInt(document.getElementById('eCount').value) || 9;
+            cfg.v = parseInt(document.getElementById('plusVal').value) || 250;
+            aktifEl[2] = 1;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('mainUI').style.display = 'flex';
+            kur(2, "table2");
+            initResizer();
+            sekmeAc(2);
+        }
+
+        function sekmeAc(n) {
+            var contents = document.getElementsByClassName('content');
+            for(var i=0; i<contents.length; i++) contents[i].style.display = 'none';
+            document.getElementById('tab'+n).style.display = 'flex';
+            var btns = document.getElementsByClassName('tab-btn');
+            for(var i=0; i<btns.length; i++) btns[i].classList.remove('active');
+            document.getElementById('btn'+n).classList.add('active');
+            
+            if(n === 3) istatistikYenile();
+            if(n === 4) gecmisOyunlariListele();
+        }
+
+        function kur(tid, targetId) {
+            var head = '<tr><th class="col-el">EL</th>';
+            var lowHead = '<tr><th class="col-el">GİR</th>';
+            var tRow = '<td class="col-el">TOP</td>';
+            var historyCells = '<td class="col-el">•</td>';
+
+            for(var i=0; i<cfg.p; i++) {
+                head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
+                lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
+                tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
+                historyCells += '<td id="histCol-' + i + '"></td>';
+            }
+            
+            var rows = "";
+            for(var i=1; i<=cfg.e; i++) {
+                rows += '<tr id="row-' + tid + '-' + i + '"><td class="col-el">' + i + '</td>';
+                for(var j=0; j<cfg.p; j++) {
+                    var isDisabled = (i === 1) ? "" : "disabled";
+                    rows += '<td><input type="text" ' + isDisabled + ' class="score-input in-' + tid + '-' + j + '" data-el="' + i + '" data-p="' + j + '" onkeydown="nav(event)" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="hesapla(' + tid + ')"></td>';
+                }
+                rows += "</tr>";
+            }
+            
+            document.getElementById(targetId).innerHTML = head + rows;
+            document.getElementById('totalRow' + tid).innerHTML = tRow;
+            document.getElementById('lowerHead').innerHTML = lowHead;
+            document.getElementById('historyRow').innerHTML = historyCells;
+            
+            setTimeout(() => bindLongPress(tid), 500);
+            hesapla(tid);
+        }
+
+        function nav(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                var ins = Array.from(document.querySelectorAll('.active .upper-table-wrapper input[type="text"]:not(:disabled):not([readonly])'));
+                var idx = ins.indexOf(e.target);
+                if (idx < ins.length - 1) ins[idx + 1].focus();
+            }
+        }
+
+        function altEkleKey(e, pIdx) {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                processAltEkle(e.target, pIdx);
+            }
+        }
+
+        function altEkleBlur(e, pIdx) {
+            processAltEkle(e.target, pIdx);
+        }
+
+        function processAltEkle(inputElement, pIdx) {
+            var v = inputElement.value.trim(); 
+            if(!v) return;
+            var col = document.getElementById('histCol-' + pIdx);
+            
+            var itemId = 'hist-item-' + pIdx + '-' + Date.now();
+            var newItem = document.createElement('span');
+            newItem.className = 'history-item';
+            newItem.id = itemId;
+            newItem.innerText = v;
+            
+            col.insertBefore(newItem, col.firstChild);
+            inputElement.value = ''; 
+            
+            attachLongPressEvent(newItem, function() {
+                duzenleMenuGecmis(itemId);
+            });
+            
+            hesapla(2);
+        }
+
+        function yeniEleGec(tid) {
+            var el = aktifEl[tid];
+            if(el >= cfg.e) { alert("Zaten son eldesiniz!"); return; }
+
+            var tr = document.getElementById('row-' + tid + '-' + el);
+            if(tr) tr.classList.add('row-played');
+
+            var currentInputs = document.querySelectorAll('#row-' + tid + '-' + el + ' input');
+            currentInputs.forEach(inp => { inp.readOnly = true; });
+
+            aktifEl[tid]++;
+            var sonrakiEl = aktifEl[tid];
+            var nextInputs = document.querySelectorAll('#row-' + tid + '-' + sonrakiEl + ' input');
+            nextInputs.forEach(inp => inp.disabled = false);
+
+            if(nextInputs.length > 0) nextInputs[0].focus();
+            hesapla(tid);
+        }
+
+        function hesapla(tid) {
+            var t = [];
+            for(var k=0; k<cfg.p; k++) t.push(0);
+
+            for(var i=0; i<cfg.p; i++) {
+                var inputs = document.querySelectorAll('.in-' + tid + '-' + i);
+                for(var j=0; j<inputs.length; j++) t[i] += coz(inputs[j].value);
+                var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
+                for(var m=0; m<spans.length; m++) t[i] += coz(spans[m].innerText);
+                var cell = document.getElementById('t-' + tid + '-' + i);
+                if(cell) cell.innerText = t[i];
+            }
+            
+            var sorted = t.slice().sort(function(a,b){return a-b;});
+            for(var i=0; i<cfg.p; i++) {
+                var rank = sorted.indexOf(t[i]);
+                var cellClass = document.getElementById('t-' + tid + '-' + i);
+                if(cellClass) cellClass.className = 'rank-' + (rank > 3 ? 3 : rank);
+            }
+        }
+
+        function coz(s) {
+            if(!s) return 0;
+            var p = (s.match(/x/gi) || []).length;
+            var cleanStr = s.replace(/x/gi, '');
+            var n = parseInt(cleanStr) || 0;
+            return n - (p * cfg.v);
+        }
+
+        function bindLongPress(tid) {
+            var inputs = document.querySelectorAll('[class*="in-' + tid + '-"]');
+            inputs.forEach(inp => {
+                attachLongPressEvent(inp, function() { duzenleMenuUst(inp, tid); });
+            });
+        }
+
+        function attachLongPressEvent(element, callback) {
+            let timer;
+            const runCallback = (e) => { e.preventDefault(); callback(); };
+            const start = (e) => {
+                if (e.type === 'click' && e.button !== 0) return;
+                timer = setTimeout(() => runCallback(e), 800);
+            };
+            const cancel = () => { clearTimeout(timer); };
+
+            element.addEventListener('mousedown', start);
+            element.addEventListener('touchstart', start, { passive: false });
+            element.addEventListener('click', cancel);
+            element.addEventListener('mouseup', cancel);
+            element.addEventListener('mouseout', cancel);
+            element.addEventListener('touchend', cancel);
+            element.addEventListener('touchmove', cancel);
+        }
+
+        // --- DÜZENLEME MENÜLERİ (UZUN BASMA / HÜCRE AKSİYONLARI) ---
+        function duzenleMenuUst(inputEl, tid) {
+            var eskiDeger = inputEl.value;
+            var elNo = inputEl.getAttribute('data-el');
+            var yeniDeger = prompt(elNo + ". El Hücre Değerini Düzenle:\n(Örn: 20, 100x, XX, -50)", eskiDeger);
+            if (yeniDeger !== null) {
+                inputEl.value = yeniDeger.replace(/[^0-9xxXX-]/g, '');
+                hesapla(tid);
+            }
+        }
+
+        function duzenleMenuGecmis(itemId) {
+            var item = document.getElementById(itemId);
+            if(!item) return;
+            var secim = prompt("Geçmiş Cezasını Düzenle (Silmek için SIL yazın):", item.innerText);
+            if (secim !== null) {
+                if(secim.trim().toUpperCase() === 'SIL') item.remove();
+                else item.innerText = secim.replace(/[^0-9xxXX-]/g, '');
+                hesapla(2);
+            }
+        }
+
+        // --- OYUNU BULUTA KAYDETME ---
+        function oyunuKaydet() {
+            var currentUser = sessionStorage.getItem('currentUser');
+            if(!currentUser) { alert("Oturum açılmamış!"); return; }
+            if(!confirm("İstatistiğe kaydedilsin mi? Tablo sıfırlanacak!")) return;
+            
+            var tabelaciNotu = prompt("Oyunla ilgili bir not girin (İsteğe bağlı):", "");
+            if(tabelaciNotu === null) tabelaciNotu = "";
+            
+            var tFinal = [];
+            for(var i=0; i<cfg.p; i++) {
+                var val = 0;
+                var inputs = document.getElementsByClassName('in-2-' + i);
+                for(var j=0; j<inputs.length; j++) val += coz(inputs[j].value);
+                var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
+                for(var m=0; m<spans.length; m++) val += coz(spans[m].innerText);
+                tFinal.push(val);
+            }
+            var names = [];
+            for(var i=0; i<cfg.p; i++) names.push(document.querySelector('.name-2-' + i).value || 'Oyuncu ' + (i+1));
+            
+            var scoreObj = tFinal.map(function(s, i){ return {s:s, i:i}; }).sort(function(a,b){ return a.s - b.s; });
+            var game = { date: new Date().toISOString(), note: tabelaciNotu.trim(), players: [] };
+            for(var i=0; i<cfg.p; i++) {
+                var rank = scoreObj.findIndex(function(x){ return x.i === i; });
+                var dynamicPts = cfg.p - 1 - rank; 
+                game.players.push({ name: names[i], penalty: tFinal[i], pts: dynamicPts < 0 ? 0 : dynamicPts });
+            }
+
+            // Buluta ekleme (Tüm cihazlar görsün diye)
+            db.collection("game_logs").add(game)
+            .then(() => {
+                alert("Veriler ortak bulut veritabanına başarıyla kaydedildi!");
+                location.reload();
+            })
+            .catch((err) => {
+                alert("Kayıt sırasında hata oluştu: " + err);
+            });
+        }
+
+        // --- BULUTTAN GELEN VERİLERLE GELİŞMİŞ İSTATİSTİK YENİLEME ---
+        function istatistikYenile() {
+            var sD = document.getElementById('dStart').value;
+            var eD = document.getElementById('dEnd').value;
+            var st = {};
+            
+            // Genel "En'leri" bulmak için yardımcı değişkenler
+            var enCokCezaAlan = { name: "-", value: 0 };
+            var enCokBatan = { name: "-", value: 0 }; // 100x veya büyük cezalar alan durumlar için (tercihe göre)
+
+            ALL_LOGS.forEach(function(log){
+                var d = log.date.split('T')[0];
+                if((sD === "" || d >= sD) && (eD === "" || d <= eD)) {
+                    log.players.forEach(function(p){
+                        if(!st[p.name]) st[p.name] = { c: 0, tp: 0, tc: 0, maxCeza: 0 };
+                        
+                        st[p.name].c++; 
+                        st[p.name].tp += p.pts; 
+                        st[p.name].tc += p.penalty;
+
+                        // Tek bir oyunda alınan en yüksek cezayı takip et
+                        if(p.penalty > st[p.name].maxCeza) {
+                            st[p.name].maxCeza = p.penalty;
+                        }
+                    });
+                }
+            });
+
+            var list = Object.keys(st).map(function(n){
+                return { 
+                    n: n, 
+                    c: st[n].c, 
+                    ap: (st[n].tp / st[n].c).toFixed(2), 
+                    ac: (st[n].tc / st[n].c).toFixed(1), 
+                    tp: st[n].tp, 
+                    tc: st[n].tc,
+                    maxC: st[n].maxCeza 
+                };
+            }).sort(function(a, b){ return b.ap - a.ap; });
+
+            // Raporlama kartları için verileri analiz et
+            var rekorCeza = 0, rekorCezaName = "-";
+            var enCokMac = 0, enKorkusuzName = "-";
+
+            list.forEach(function(player) {
+                // Tek maçta en çok ceza yiyen rekor sahibi
+                if(player.maxC > rekorCeza) {
+                    rekorCeza = player.maxC;
+                    rekorCezaName = player.n;
+                }
+                // En çok masaya oturan/oynayan
+                if(player.c > enCokMac) {
+                    enCokMac = player.c;
+                    enKorkusuzName = player.n;
+                }
+            });
+
+            // 1. Ana Lig Tablosunu Oluştur
+            var h = "";
+            if(list.length === 0) {
+                h = '<tr><td colspan="6" style="color:#666; padding:15px;">Belirtilen tarihte istatistik bulunamadı.</td></tr>';
+            } else {
+                list.forEach(function(i){
+                    h += '<tr>';
+                    h += '  <td style="text-transform:capitalize; font-weight:bold;">'+i.n+'</td>';
+                    h += '  <td>'+i.c+'</td>';
+                    h += '  <td style="color:#28a745; font-weight:bold;">'+i.ap+'</td>';
+                    h += '  <td style="color:#e67e22;">'+i.ac+'</td>';
+                    h += '  <td>'+i.tp+'</td>';
+                    h += '  <td>'+i.tc+'</td>';
+                    h += '</tr>';
+                });
+            }
+            document.getElementById('statBody').innerHTML = h;
+
+            // 2. "En Değerli / En Çok Ceza Alan" Özet Panelini Güncelle
+            // İstatistik sayfasında bu kartları basacağımız bir div olduğunu varsayarak dolduruyoruz
+            var reportContainer = document.getElementById('statReports');
+            if(reportContainer && list.length > 0) {
+                var enIyiPlayer = list[0]; // Sıralama puana göre en üstteki
+                var enCokCezaYiyenTotal = list.slice().sort((a,b) => b.tc - a.tc)[0]; // Toplamda en çok ceza yiyen
+
+                reportContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid #28a745; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">🏆 Lider (Ort. Puan)</span>
+                            <strong style="text-transform: capitalize; color: #28a745; font-size: 15px;">${enIyiPlayer.n}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${enIyiPlayer.ap} Puan</span>
+                        </div>
+                        <div style="background: rgba(217, 83, 79, 0.1); border: 1px solid #d9534f; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">👹 En Çok Ceza Alan (Toplam)</span>
+                            <strong style="text-transform: capitalize; color: #d9534f; font-size: 15px;">${enCokCezaYiyenTotal.n}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${enCokCezaYiyenTotal.tc} Ceza</span>
+                        </div>
+                        <div style="background: rgba(230, 126, 34, 0.1); border: 1px solid #e67e22; padding: 10px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 11px; color: #666; display: block;">💥 Tek Maç Ceza Rekoru</span>
+                            <strong style="text-transform: capitalize; color: #e67e22; font-size: 15px;">${rekorCezaName}</strong>
+                            <span style="display:block; font-size:11px; color:#999;">${rekorCeza} Ceza</span>
+                        </div>
+                    </div>
+                `;
+            } else if (reportContainer) {
+                reportContainer.innerHTML = ""; // Veri yoksa temizle
+            }
+        }
+        // --- BULUTTAKİ VERİLERİ SIFIRLAMA ---
+        function istatistikSifirla() {
+            if(confirm("DİKKAT! Buluttaki tüm ortak oyun geçmişi silinecek. Emin misiniz?")) {
+                var adminSifre = prompt("İstatistikleri kalıcı olarak silmek için lütfen Yönetici şifresini girin:");
+                if (adminSifre !== USERS['admin'].pass) {
+                    alert("Yetkisiz İşlem! Yönetici şifresi hatalı.");
+                    return;
+                }
+                
+                // Firestore'daki tüm logları temizle
+                db.collection("game_logs").get().then((snapshot) => {
+                    let batch = db.batch();
+                    snapshot.docs.forEach((doc) => {
+                        batch.delete(doc.ref);
+                    });
+                    return batch.commit();
+                }).then(() => {
+                    alert("Tüm ortak veriler başarıyla sıfırlandı.");
+                });
+            }
+        }
+
+        // --- BULUTTAKİ GEÇMİŞ OYUNLARI LİSTELEME ---
+        function gecmisOyunlariListele() {
+            var container = document.getElementById('gameLogsList');
+            var sD = document.getElementById('hStart').value;
+            var eD = document.getElementById('hEnd').value;
+
+            var filtrelenmisLogs = [];
+            ALL_LOGS.forEach(function(item, index) {
+                var d = item.date.split('T')[0];
+                if((!sD || d >= sD) && (!eD || d <= eD)) {
+                    filtrelenmisLogs.push({ oyun: item, orijinalIndex: index });
+                }
+            });
+            
+            if(filtrelenmisLogs.length === 0) {
+                container.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">Oyun bulunamadı.</div>';
+                document.getElementById('pastGameTableBody').innerHTML = '<tr><td colspan="4" style="color:#999; padding:15px;">Kayıt bulunamadı.</td></tr>';
+                document.getElementById('selectedGameTitle').innerText = 'İncelemek İçin Yukarıdan Bir Oyun Seçin';
+                document.getElementById('gameNoteDisplay').style.display = "none";
+                return;
+            }
+
+            var html = "";
+            filtrelenmisLogs.forEach(function(current) {
+                var log = current.oyun;
+                var dObj = new Date(log.date);
+                var tarihStr = dObj.toLocaleDateString('tr-TR') + " - " + dObj.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
+                var ozetOyuncular = log.players.map(p => p.name).join(', ');
+                
+                html += '<div class="game-log-card" onclick="gecmisOyunDetayGoster(' + current.orijinalIndex + ')">';
+                html += '  <span class="game-log-date">📅 ' + tarihStr + '</span>';
+                html += '  <div class="game-log-summary">👥 ' + ozetOyuncular + '</div>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        function gecmisOyunDetayGoster(idx) {
+            var g = ALL_LOGS[idx];
+            if(!g) return;
+
+            var dObj = new Date(g.date);
+            var formatliTarih = dObj.toLocaleDateString('tr-TR') + " " + dObj.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('selectedGameTitle').innerText = "📊 Oyun Skoru (" + formatliTarih + ")";
+
+            var siraliOyuncular = g.players.slice().sort(function(a, b){ return a.penalty - b.penalty; });
+
+            var tbodyHtml = "";
+            siraliOyuncular.forEach(function(p, sIdx) {
+                var renkSinifi = 'rank-' + (sIdx > 3 ? 3 : sIdx);
+                tbodyHtml += '<tr>';
+                tbodyHtml += '  <td><b>' + (sIdx + 1) + '.</b></td>';
+                tbodyHtml += '  <td>' + p.name + '</td>';
+                tbodyHtml += '  <td class="' + renkSinifi + '">' + p.penalty + '</td>';
+                tbodyHtml += '  <td style="color:#28a745; font-weight:bold;">+' + p.pts + '</td>';
+                tbodyHtml += '</tr>';
+            });
+
+            document.getElementById('pastGameTableBody').innerHTML = tbodyHtml;
+            
+            var noteBox = document.getElementById('gameNoteDisplay');
+            var noteText = document.getElementById('gameNoteText');
+            if(g.note && g.note.trim() !== "") {
+                noteText.innerText = g.note;
+                noteBox.style.display = "block";
+            } else {
+                noteBox.style.display = "none";
+            }
+        }
+
+        // --- MOBİL DİKEY BOYUTLANDIRICI (RESIZER) ---
+        function initResizer() {
+            var resizer = document.getElementById('resizer');
+            var upWrap = document.getElementById('upWrap2');
+            var drag = function(e) {
+                var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                var newH = clientY - 80;
+                if(newH > 80 && newH < window.innerHeight - 150) upWrap.style.height = newH + 'px';
+            };
+            var stopDrag = function() {
+                document.removeEventListener('mousemove', drag);
+                document.removeEventListener('touchmove', drag);
+            };
+            resizer.addEventListener('mousedown', function(){ 
+                document.addEventListener('mousemove', drag); 
+                document.addEventListener('mouseup', stopDrag); 
+            });
+            resizer.addEventListener('touchstart', function(e){ 
+                document.addEventListener('touchmove', drag); 
+                document.addEventListener('touchend', stopDrag); 
+            });
+        }
+    </script>
+</body>
+</html>
