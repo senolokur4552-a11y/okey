@@ -665,14 +665,22 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
             for(var i=0; i<cfg.p; i++) names.push(document.querySelector('.name-2-' + i).value || 'Oyuncu ' + (i+1));
             
             var scoreObj = tFinal.map(function(s, i){ return {s:s, i:i}; }).sort(function(a,b){ return a.s - b.s; });
-            var game = { date: new Date().toISOString(), note: tabelaciNotu.trim(), players: [] };
+            
+            // KRİTİK ADIM: owner alanına giriş yapan grubun adını ekliyoruz
+            var game = { 
+                owner: currentUser.trim().toLowerCase(), 
+                date: new Date().toISOString(), 
+                note: tabelaciNotu.trim(), 
+                players: [] 
+            };
+            
             for(var i=0; i<cfg.p; i++) {
                 var rank = scoreObj.findIndex(function(x){ return x.i === i; });
                 var dynamicPts = cfg.p - 1 - rank; 
                 game.players.push({ name: names[i], penalty: tFinal[i], pts: dynamicPts < 0 ? 0 : dynamicPts });
             }
 
-            // Buluta ekleme (Tüm cihazlar görsün diye)
+            // Buluta ekleme
             db.collection("game_logs").add(game)
             .then(() => {
                 alert("Veriler ortak bulut veritabanına başarıyla kaydedildi!");
@@ -685,27 +693,32 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
 
         // --- BULUTTAN GELEN VERİLERLE GELİŞMİŞ İSTATİSTİK YENİLEME ---
         function istatistikYenile() {
+            var currentUser = sessionStorage.getItem('currentUser');
+            if(!currentUser) { alert("Oturum açılmamış!"); return; }
+            var currentOwner = currentUser.trim().toLowerCase();
+
             var sD = document.getElementById('dStart').value;
             var eD = document.getElementById('dEnd').value;
             var st = {};
-            
-            // Genel "En'leri" bulmak için yardımcı değişkenler
-            var enCokCezaAlan = { name: "-", value: 0 };
-            var enCokBatan = { name: "-", value: 0 }; // 100x veya büyük cezalar alan durumlar için (tercihe göre)
 
             ALL_LOGS.forEach(function(log){
                 var d = log.date.split('T')[0];
                 if((sD === "" || d >= sD) && (eD === "" || d <= eD)) {
-                    log.players.forEach(function(p){
-                        if(!st[p.name]) st[p.name] = { c: 0, tp: 0, tc: 0, maxCeza: 0 };
-                        
-                        st[p.name].c++; 
-                        st[p.name].tp += p.pts; 
-                        st[p.name].tc += p.penalty;
+                    
+                    // KRİTİK FİLTRE: Oyun bu gruba/turnuvaya ait değilse es geç
+                    if(!log.owner || log.owner !== currentOwner) return;
 
-                        // Tek bir oyunda alınan en yüksek cezayı takip et
-                        if(p.penalty > st[p.name].maxCeza) {
-                            st[p.name].maxCeza = p.penalty;
+                    // Bu gruba aitse, maçı oynayan herkesi istatistiğe dahil et
+                    log.players.forEach(function(p){
+                        var pName = p.name.trim().toLowerCase();
+                        if(!st[pName]) st[pName] = { displayName: p.name, c: 0, tp: 0, tc: 0, maxCeza: 0 };
+                        
+                        st[pName].c++; 
+                        st[pName].tp += p.pts; 
+                        st[pName].tc += p.penalty;
+
+                        if(p.penalty > st[pName].maxCeza) {
+                            st[pName].maxCeza = p.penalty;
                         }
                     });
                 }
@@ -713,7 +726,7 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
 
             var list = Object.keys(st).map(function(n){
                 return { 
-                    n: n, 
+                    n: st[n].displayName, 
                     c: st[n].c, 
                     ap: (st[n].tp / st[n].c).toFixed(2), 
                     ac: (st[n].tc / st[n].c).toFixed(1), 
@@ -723,24 +736,16 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
                 };
             }).sort(function(a, b){ return b.ap - a.ap; });
 
-            // Raporlama kartları için verileri analiz et
+            // Raporlama kartları analizi
             var rekorCeza = 0, rekorCezaName = "-";
-            var enCokMac = 0, enKorkusuzName = "-";
-
             list.forEach(function(player) {
-                // Tek maçta en çok ceza yiyen rekor sahibi
                 if(player.maxC > rekorCeza) {
                     rekorCeza = player.maxC;
                     rekorCezaName = player.n;
                 }
-                // En çok masaya oturan/oynayan
-                if(player.c > enCokMac) {
-                    enCokMac = player.c;
-                    enKorkusuzName = player.n;
-                }
             });
 
-            // 1. Ana Lig Tablosunu Oluştur
+            // Tabloyu oluşturma
             var h = "";
             if(list.length === 0) {
                 h = '<tr><td colspan="6" style="color:#666; padding:15px;">Belirtilen tarihte istatistik bulunamadı.</td></tr>';
@@ -758,22 +763,21 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
             }
             document.getElementById('statBody').innerHTML = h;
 
-            // 2. "En Değerli / En Çok Ceza Alan" Özet Panelini Güncelle
-            // İstatistik sayfasında bu kartları basacağımız bir div olduğunu varsayarak dolduruyoruz
+            // Özet Panelini Güncelle
             var reportContainer = document.getElementById('statReports');
             if(reportContainer && list.length > 0) {
-                var enIyiPlayer = list[0]; // Sıralama puana göre en üstteki
-                var enCokCezaYiyenTotal = list.slice().sort((a,b) => b.tc - a.tc)[0]; // Toplamda en çok ceza yiyen
+                var enIyiPlayer = list[0]; 
+                var enCokCezaYiyenTotal = list.slice().sort((a,b) => b.tc - a.tc)[0]; 
 
                 reportContainer.innerHTML = `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 15px;">
                         <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid #28a745; padding: 10px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 11px; color: #666; display: block;">🏆 Lider (Ort. Puan)</span>
+                            <span style="font-size: 11px; color: #666; display: block;">🏆 Grup Lideri</span>
                             <strong style="text-transform: capitalize; color: #28a745; font-size: 15px;">${enIyiPlayer.n}</strong>
-                            <span style="display:block; font-size:11px; color:#999;">${enIyiPlayer.ap} Puan</span>
+                            <span style="display:block; font-size:11px; color:#999;">${enIyiPlayer.ap} Puan Ortalama</span>
                         </div>
                         <div style="background: rgba(217, 83, 79, 0.1); border: 1px solid #d9534f; padding: 10px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 11px; color: #666; display: block;">👹 En Çok Ceza Alan (Toplam)</span>
+                            <span style="font-size: 11px; color: #666; display: block;">👹 Toplamda En Çok Batan</span>
                             <strong style="text-transform: capitalize; color: #d9534f; font-size: 15px;">${enCokCezaYiyenTotal.n}</strong>
                             <span style="display:block; font-size:11px; color:#999;">${enCokCezaYiyenTotal.tc} Ceza</span>
                         </div>
@@ -785,9 +789,10 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
                     </div>
                 `;
             } else if (reportContainer) {
-                reportContainer.innerHTML = ""; // Veri yoksa temizle
+                reportContainer.innerHTML = "";
             }
         }
+
         // --- BULUTTAKİ VERİLERİ SIFIRLAMA ---
         function istatistikSifirla() {
             if(confirm("DİKKAT! Buluttaki tüm ortak oyun geçmişi silinecek. Emin misiniz?")) {
@@ -812,6 +817,10 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
 
         // --- BULUTTAKİ GEÇMİŞ OYUNLARI LİSTELEME ---
         function gecmisOyunlariListele() {
+            var currentUser = sessionStorage.getItem('currentUser');
+            if(!currentUser) { return; }
+            var currentOwner = currentUser.trim().toLowerCase();
+
             var container = document.getElementById('gameLogsList');
             var sD = document.getElementById('hStart').value;
             var eD = document.getElementById('hEnd').value;
@@ -820,7 +829,11 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
             ALL_LOGS.forEach(function(item, index) {
                 var d = item.date.split('T')[0];
                 if((!sD || d >= sD) && (!eD || d <= eD)) {
-                    filtrelenmisLogs.push({ oyun: item, orijinalIndex: index });
+                    
+                    // KRİTİK FİLTRE: Sadece bu gruba ait oyunları listeye al
+                    if(item.owner && item.owner === currentOwner) {
+                        filtrelenmisLogs.push({ oyun: item, orijinalIndex: index });
+                    }
                 }
             });
             
