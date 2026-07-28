@@ -253,15 +253,26 @@
         // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
         // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
 // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
-        function initRealtimeSync() {
-            // Kullanıcıları Çek
-            db.collection("users").onSnapshot((snapshot) => {
-                USERS = { 'admin': { pass: '1234', role: 'ADMIN' } }; // Varsayılan admin daima var
-                snapshot.forEach((doc) => {
-                    USERS[doc.id] = doc.data();
-                });
-                updateUI();
-            });
+        // Buluttan Kullanıcıları ve Oyunları Canlı Dinle/Senkronize Et
+function initRealtimeSync() {
+    // Kullanıcıları Çek
+    db.collection("users").onSnapshot((snapshot) => {
+        // 1. Önce varsayılan objeyi oluşturuyoruz (Güvenlik önlemi)
+        const geciciUsers = { 'admin': { pass: '1234', role: 'ADMIN' } }; 
+        
+        // 2. Buluttan gelen tüm kullanıcıları (ve varsa güncel admini) üzerine yazıyoruz
+        snapshot.forEach((doc) => {
+            geciciUsers[doc.id] = doc.data();
+        });
+        
+        // 3. Global USERS nesnesini tek seferde güncelliyoruz (Sayfa yenilenmeden şifre değişir)
+        USERS = geciciUsers;
+        
+        // 4. İstatistik paneli veya arayüzün etkilenen kısımlarını tetikle
+        if (typeof updateUI === "function") updateUI();
+        if (typeof istatistikYenile === "function") istatistikYenile();
+    });
+}
 
             // Tüm Oyun Geçmişini Çek
             db.collection("game_logs").orderBy("date", "desc").onSnapshot((snapshot) => {
