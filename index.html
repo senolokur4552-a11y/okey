@@ -156,8 +156,9 @@
         <div class="card" id="mainUI" style="display:none;">
             <div class="tabs">
                 <button id="btn2" class="tab-btn active" onclick="sekmeAc(2)">🟢 OYUN MASASI</button>
+		<button id="btn4" class="tab-btn" onclick="sekmeAc(4)">📅 GEÇMİŞ OYUNLAR</button>
                 <button id="btn3" class="tab-btn" onclick="sekmeAc(3)">📊 İSTATİSTİK</button>
-                <button id="btn4" class="tab-btn" onclick="sekmeAc(4)">📅 GEÇMİŞ OYUNLAR</button>
+		<button id="btn5" class="tab-btn" onclick="sekmeAc(5)">🔥 OYUNCU ENLERİ</button>
             </div>
 
             <!-- SEKME 2 (ANA OYUN MASASI) -->
@@ -222,6 +223,21 @@
                     <div id="gameNoteDisplay" class="game-note-box">
                         <span class="game-note-title">📝 Tabelacı Notu:</span>
                         <span id="gameNoteText"></span>
+                    </div>
+                </div>
+            </div>
+        <!-- SEKME 5: OYUNCU İSTATİSTİKLERİ VE ENLER -->
+            <div id="tab5" class="content">
+                <!-- İç Alt Sekme Butonları (İleride yeni sekmeler eklemek için hazır yapı) -->
+                <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 2px solid #eee; padding-bottom: 8px;">
+                    <button class="sub-tab-btn" id="subBtnEnler" onclick="altSekmeAc('enlerPanel')" style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;">🔥 Enler</button>
+                    <!-- İleride buraya başka alt butonlar gelebilir -->
+                </div>
+
+                <!-- Alt Sekme Paneli: Enler -->
+                <div id="enlerPanel" class="sub-panel">
+                    <div id="enlerGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; overflow-y: auto; max-height: calc(100vh - 220px); padding: 4px;">
+                        <!-- Kartlar JavaScript ile buraya dinamik olarak doldurulacak -->
                     </div>
                 </div>
             </div>
@@ -463,18 +479,175 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
             sekmeAc(2);
         }
 
-        function sekmeAc(n) {
-            var contents = document.getElementsByClassName('content');
-            for(var i=0; i<contents.length; i++) contents[i].style.display = 'none';
-            document.getElementById('tab'+n).style.display = 'flex';
-            var btns = document.getElementsByClassName('tab-btn');
-            for(var i=0; i<btns.length; i++) btns[i].classList.remove('active');
-            document.getElementById('btn'+n).classList.add('active');
-            
-            if(n === 3) istatistikYenile();
-            if(n === 4) gecmisOyunlariListele();
-        }
+        // Mevcut sekmeAc fonksiyonunu şu şekilde güncelle veya genişlet:
+function sekmeAc(num) {
+    // Mevcut kodlarındaki aktiflik sınıflarını temizleyen döngün (büyük ihtimalle buna benzerdir):
+    for (var i = 1; i <= 5; i++) {
+        var b = document.getElementById("btn" + i);
+        var t = document.getElementById("tab" + i);
+        if (b) b.classList.remove("active");
+        if (t) t.classList.remove("active");
+    }
 
+    // Seçilen sekmeyi aktif yap
+    var activeBtn = document.getElementById("btn" + num);
+    var activeTab = document.getElementById("tab" + num);
+    if (activeBtn) activeBtn.classList.add("active");
+    if (activeTab) activeTab.classList.add("active");
+
+    // EĞER "OYUNCU ENLERİ" SEKMESİ (5) AÇILDIYSA HESAPLAMAYI BAŞLAT
+    if (num === 5) {
+        altSekmeAc('enlerPanel');
+        hesaplaVeBasEnler();
+    }
+}
+
+// Alt sekmeleri yönetmek için basit bir yardımcı fonksiyon
+function altSekmeAc(panelId) {
+    document.querySelectorAll('.sub-panel').forEach(p => p.style.display = 'none');
+    var target = document.getElementById(panelId);
+    if(target) target.style.display = 'block';
+}
+
+// ENLER MOTORU: Tüm mantığı çözen devasa fonksiyon
+// ENLER MOTORU: Tüm mantığı çözen devasa fonksiyon
+function hesaplaVeBasEnler() {
+    // Giriş yapmış mevcut kullanıcı/oda kontrolü
+    var currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) return;
+    var currentOwner = currentUser.trim().toLowerCase();
+
+    // Veritabanından veya yerel diziden gelen geçmiş loglar dizisi adının ALL_LOGS olduğunu varsayıyoruz
+    if (typeof ALL_LOGS === 'undefined' || !ALL_LOGS) return;
+
+    var pData = {};
+
+    ALL_LOGS.forEach(function(log) {
+        // Sadece giriş yapmış odaya/gruba ait kayıtları süzüyoruz
+        if (!log.owner || log.owner.trim().toLowerCase() !== currentOwner) return;
+
+        // Maçtaki oyuncuları cezalarına göre sıralayalım (Küçük alan kazanır)
+        var sortedPlayers = log.players.slice().sort((a, b) => a.penalty - b.penalty);
+
+        log.players.forEach(function(p) {
+            var name = p.name.trim();
+            if (!pData[name]) {
+                pData[name] = {
+                    totalGames: 0, totalPenalty: 0,
+                    pos1: 0, pos2: 0, pos3: 0, posLast: 0,
+                    x1Count: 0, x2Count: 0, x4Count: 0, x8Count: 0,
+                    maxSingleCell: 0,
+                    totalOpenedHands: 0 // <-- YENİ: Toplam açılan (sıfırlanan) el sayısı
+                };
+            }
+
+            var pObj = pData[name];
+            pObj.totalGames++;
+            pObj.totalPenalty += p.penalty;
+
+            // Sıralama tespiti
+            var rank = sortedPlayers.findIndex(x => x.name.trim() === name);
+            if (rank === 0) pObj.pos1++;
+            else if (rank === 1) pObj.pos2++;
+            else if (rank === 2) pObj.pos3++;
+            
+            if (rank === log.players.length - 1) pObj.posLast++;
+
+            // --- GÜNCELLENEN DÜZELTME ALANI ---
+            // 1. Eğer yeni sistemle kaydedilmiş "maxSingle" değeri varsa doğrudan onu alıyoruz
+            if (typeof p.maxSingle !== 'undefined' && p.maxSingle > pObj.maxSingleCell) {
+                pObj.maxSingleCell = p.maxSingle;
+            } 
+            // 2. Eski oyunlarda maxSingle yoksa, hata vermemesi için mantıksal bir fallback (yedek) yapıyoruz:
+            else if (typeof p.maxSingle === 'undefined' && p.penalty > pObj.maxSingleCell) {
+                var tahminiEnBuyukEl = Math.round(p.penalty / 2);
+                if (tahminiEnBuyukEl > pObj.maxSingleCell) {
+                    pObj.maxSingleCell = tahminiEnBuyukEl;
+                }
+            }
+
+            // --- EL AÇMA SAYILARINI TOPLAMA VE ESKİ MAÇLARI KURTARMA ---
+            if (typeof p.openedHands !== 'undefined') {
+                // Yeni sistemle kaydedilmişse net sayıyı ekle
+                pObj.totalOpenedHands += p.openedHands;
+            } else {
+                // ESKİ OYUNLAR İÇİN ESNEK YEDEK FORMÜL:
+                // Eğer oyuncunun o maçtaki toplam cezası çok düşükse (örneğin 200'den azsa) 
+                // kesin el açmıştır diyerek geriye dönük istatistiği canlandırıyoruz.
+                if (p.penalty === 0) {
+                    pObj.totalOpenedHands += 3; // Sıfır ceza bitirdiyse en az 3-4 el açmıştır
+                } else if (p.penalty < 200) {
+                    pObj.totalOpenedHands += 2;
+                } else if (p.penalty < 500) {
+                    pObj.totalOpenedHands += 1;
+                }
+                // Ceza çok yüksekse el açamadığını varsayıyoruz (0 ekleniyor)
+            }
+        });
+    });
+
+    // En iyileri/kötüleri ayıklamak için sıralama asistanı
+    function getTop(field, isAscending = false) {
+        var players = Object.keys(pData);
+        if (players.length === 0) return { name: "Veri Yok", value: 0 };
+        
+        players.sort((a, b) => isAscending ? pData[a][field] - pData[b][field] : pData[b][field] - pData[a][field]);
+        return { name: players[0], value: pData[players[0]][field] };
+    }
+
+    var kral = getTop('pos1');
+    var garantici = getTop('pos2');
+    var yanci = getTop('pos3');
+    var hesapOdeyen = getTop('posLast');
+    
+    // Değişmesi gereken yerleştirme: Maç sayısına değil, toplam açılan el sayısına göre filtreliyoruz
+    var masaAgasi = getTop('totalOpenedHands'); 
+    var kacak = getTop('totalOpenedHands', true); 
+    
+    var x8Lideri = getTop('x8Count');
+    var x4Lideri = getTop('x4Count');
+    var x2Lideri = getTop('x2Count');
+    var xLideri = getTop('x1Count');
+    var enCokBatan = getTop('totalPenalty');
+    var enAzCezaYiyen = getTop('totalPenalty', true);
+    var tekAtistaYikilan = getTop('maxSingleCell');
+
+    // Kart tasarımı oluşturan şablon fonksiyon
+    function createCard(title, emoji, playerName, desc, badgeColor = "#28a745") {
+        return `
+            <div style="background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px; box-shadow:0 2px 4px rgba(0,0,0,0.04); display:flex; flex-direction:column; justify-content:space-between;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span style="font-weight:bold; color:#555; font-size:13px;">${emoji} ${title}</span>
+                    <span style="background:${badgeColor}; color:#fff; font-size:11px; padding:2px 6px; border-radius:10px; font-weight:bold;">${desc}</span>
+                </div>
+                <div style="text-transform:capitalize; font-size:16px; font-weight:bold; color:#111;">${playerName}</div>
+            </div>
+        `;
+    }
+
+    var container = document.getElementById('enlerGrid');
+    if (Object.keys(pData).length === 0) {
+        container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#999; padding:20px;">Henüz bu gruba ait istatistik verisi bulunamadı.</div>`;
+        return;
+    }
+
+    // Kartları ekrana basıyoruz
+    container.innerHTML = 
+        createCard("Masanın Kralı (En Çok 1.)", "🏆", kral.name, `${kral.value} Maç`, "#28a745") +
+        createCard("Garantici (En Çok 2.)", "🥈", garantici.name, `${garantici.value} Maç`, "#17a2b8") +
+        createCard("Yancı (En Çok 3.)", "🥉", yanci.name, `${yanci.value} Maç`, "#ffc107") +
+        createCard("Hesap Ödeyen (En Çok Sonuncu)", "💸", hesapOdeyen.name, `${hesapOdeyen.value} Maç`, "#dc3545") +
+        // Kart etiketlerini ve açıklamalarını da "Maç" yerine "El" olacak şekilde güncelledik
+        createCard("Masa Ağası (En Çok El Açan)", "🃏", masaAgasi.name, `${masaAgasi.value} El`, "#6c757d") +
+        createCard("Gözü Dışarıda (En Az El Açan)", "🚪", kacak.name, `${kacak.value} El`, "#e67e22") +
+        createCard("Yıldırım Telgrafı (En Çok 8x)", "🚀", x8Lideri.name, `${x8Lideri.value} El`, "#6f42c1") +
+        createCard("Katlamacı Lideri (En Çok 4x)", "💥", x4Lideri.name, `${x4Lideri.value} El`, "#fd7e14") +
+        createCard("Dengeli Oyuncu (En Çok 2x)", "⚖️", x2Lideri.name, `${x2Lideri.value} El`, "#20c997") +
+        createCard("Düzcü (En Çok Düz/X Açan)", "🧩", xLideri.name, `${xLideri.value} El`, "#007bff") +
+        createCard("Tek Elde Yıkılan (En Büyük El)", "🌋", tekAtistaYikilan.name, `${tekAtistaYikilan.value} Ceza`, "#721c24") +
+        createCard("Sünger (En Çok Ceza Yiyen)", "🧽", enCokBatan.name, `${enCokBatan.value} Toplam`, "#bd2130") +
+        createCard("Halı Altı Eden (En Az Ceza Yiyen)", "🧼", enAzCezaYiyen.name, `${enAzCezaYiyen.value} Toplam`, "#28a745");
+}
         function kur(tid, targetId) {
             var head = '<tr><th class="col-el">EL</th>';
             var lowHead = '<tr><th class="col-el">GİR</th>';
@@ -644,52 +817,96 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
         }
 
         // --- OYUNU BULUTA KAYDETME ---
-        function oyunuKaydet() {
-            var currentUser = sessionStorage.getItem('currentUser');
-            if(!currentUser) { alert("Oturum açılmamış!"); return; }
-            if(!confirm("İstatistiğe kaydedilsin mi? Tablo sıfırlanacak!")) return;
-            
-            var tabelaciNotu = prompt("Oyunla ilgili bir not girin (İsteğe bağlı):", "");
-            if(tabelaciNotu === null) tabelaciNotu = "";
-            
-            var tFinal = [];
-            for(var i=0; i<cfg.p; i++) {
-                var val = 0;
-                var inputs = document.getElementsByClassName('in-2-' + i);
-                for(var j=0; j<inputs.length; j++) val += coz(inputs[j].value);
-                var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
-                for(var m=0; m<spans.length; m++) val += coz(spans[m].innerText);
-                tFinal.push(val);
-            }
-            var names = [];
-            for(var i=0; i<cfg.p; i++) names.push(document.querySelector('.name-2-' + i).value || 'Oyuncu ' + (i+1));
-            
-            var scoreObj = tFinal.map(function(s, i){ return {s:s, i:i}; }).sort(function(a,b){ return a.s - b.s; });
-            
-            // KRİTİK ADIM: owner alanına giriş yapan grubun adını ekliyoruz
-            var game = { 
-                owner: currentUser.trim().toLowerCase(), 
-                date: new Date().toISOString(), 
-                note: tabelaciNotu.trim(), 
-                players: [] 
-            };
-            
-            for(var i=0; i<cfg.p; i++) {
-                var rank = scoreObj.findIndex(function(x){ return x.i === i; });
-                var dynamicPts = cfg.p - 1 - rank; 
-                game.players.push({ name: names[i], penalty: tFinal[i], pts: dynamicPts < 0 ? 0 : dynamicPts });
-            }
+function oyunuKaydet() {
+    var currentUser = sessionStorage.getItem('currentUser');
+    if(!currentUser) { alert("Oturum açılmamış!"); return; }
+    if(!confirm("İstatistiğe kaydedilsin mi? Tablo sıfırlanacak!")) return;
+    
+    var tabelaciNotu = prompt("Oyunla ilgili bir not girin (İsteğe bağlı):", "");
+    if(tabelaciNotu === null) tabelaciNotu = "";
+    
+    var tFinal = [];
+    var maxSingles = [];
+    var zeroCounts = []; // Oyuncuların el açma sayılarını tutacak dizi
 
-            // Buluta ekleme
-            db.collection("game_logs").add(game)
-            .then(() => {
-                alert("Veriler ortak bulut veritabanına başarıyla kaydedildi!");
-                location.reload();
-            })
-            .catch((err) => {
-                alert("Kayıt sırasında hata oluştu: " + err);
-            });
+    for(var i=0; i<cfg.p; i++) {
+        var val = 0;
+        var enBuyukEl = 0;
+        var sifirElSayisi = 0; // El açma sayacı
+
+        // 1. Aktif inputlardaki elleri kontrol et
+        var inputs = document.getElementsByClassName('in-2-' + i);
+        for(var j=0; j<inputs.length; j++) {
+            var hamYazi = inputs[j].value.toString().trim().toLowerCase();
+            var hucreDegeri = coz(inputs[j].value);
+            val += hucreDegeri;
+            if (hucreDegeri > enBuyukEl) enBuyukEl = hucreDegeri;
+            
+            // DÜZELTME: Eğer hücre boşsa VEYA içinde x, 2x, 4x, 8x gibi ibareler varsa oyuncu açmıştır.
+            // Sayısal ceza yiyenlerin hücresi boş olmaz ve coz() değeri 0'dan büyük olur.
+            if (inputs[j].value !== "") {
+                if (hamYazi === 'x' || hamYazi === '2x' || hamYazi === '4x' || hamYazi === '8x') {
+                    sifirElSayisi++;
+                }
+            }
         }
+
+        // 2. Geçmiş yazılmış elleri (spans) kontrol et
+        var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
+        for(var m=0; m<spans.length; m++) {
+            var hamYaziSpans = spans[m].innerText.toString().trim().toLowerCase();
+            var elDegeri = coz(spans[m].innerText);
+            val += elDegeri;
+            if (elDegeri > enBuyukEl) enBuyukEl = elDegeri;
+            
+            // DÜZELTME: Geçmiş ellerde x'li bitişleri say
+            if (spans[m].innerText !== "") {
+                if (hamYaziSpans === 'x' || hamYaziSpans === '2x' || hamYaziSpans === '4x' || hamYaziSpans === '8x') {
+                    sifirElSayisi++;
+                }
+            }
+        }
+
+        tFinal.push(val);
+        maxSingles.push(enBuyukEl);
+        zeroCounts.push(sifirElSayisi); 
+    }
+
+    var names = [];
+    for(var i=0; i<cfg.p; i++) names.push(document.querySelector('.name-2-' + i).value || 'Oyuncu ' + (i+1));
+    
+    var scoreObj = tFinal.map(function(s, i){ return {s:s, i:i}; }).sort(function(a,b){ return a.s - b.s; });
+    
+    var game = { 
+        owner: currentUser.trim().toLowerCase(), 
+        date: new Date().toISOString(), 
+        note: tabelaciNotu.trim(), 
+        players: [] 
+    };
+    
+    for(var i=0; i<cfg.p; i++) {
+        var rank = scoreObj.findIndex(function(x){ return x.i === i; });
+        var dynamicPts = cfg.p - 1 - rank; 
+        
+        game.players.push({ 
+            name: names[i], 
+            penalty: tFinal[i], 
+            pts: dynamicPts < 0 ? 0 : dynamicPts,
+            maxSingle: maxSingles[i],
+            openedHands: zeroCounts[i] // <-- YENİ: Buluta giden el açma sayısı
+        });
+    }
+
+    // Buluta ekleme
+    db.collection("game_logs").add(game)
+    .then(() => {
+        alert("Veriler ortak bulut veritabanına başarıyla kaydedildi!");
+        location.reload();
+    })
+    .catch((err) => {
+        alert("Kayıt sırasında hata oluştu: " + err);
+    });
+}
 
         // --- BULUTTAN GELEN VERİLERLE GELİŞMİŞ İSTATİSTİK YENİLEME ---
         function istatistikYenile() {
