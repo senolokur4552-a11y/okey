@@ -246,6 +246,7 @@
 
     <script>
         // --- 1. FIREBASE BAĞLANTI BİLGİLERİ ---
+	
         const firebaseConfig = {
           apiKey: "AIzaSyBS_RtpUjjyT3AtapCh8TituSDrdd9VT9k",
           authDomain: "okey-skor.firebaseapp.com",
@@ -459,6 +460,7 @@ document.getElementById('loginSubmitBtn').addEventListener('click', () => {
         // --- OKEY SKOR SİSTEMİ ---
         var cfg = { p: 4, e: 9, v: 250 };
         var aktifEl = { 2: 1 };
+	var devredenCezalar = [];
 
         function baslat() {
             var currentUser = sessionStorage.getItem('currentUser');
@@ -511,6 +513,7 @@ function altSekmeAc(panelId) {
 
 // ENLER MOTORU: Tüm mantığı çözen devasa fonksiyon
 // ENLER MOTORU: Tüm mantığı çözen devasa fonksiyon
+// ENLER MOTORU: Tüm mantığı çözen devasa fonksiyon
 function hesaplaVeBasEnler() {
     // Giriş yapmış mevcut kullanıcı/oda kontrolü
     var currentUser = sessionStorage.getItem('currentUser');
@@ -522,12 +525,34 @@ function hesaplaVeBasEnler() {
 
     var pData = {};
 
-    ALL_LOGS.forEach(function(log) {
+    // X Bitişleri için "En Son Yapanı" takip edecek özel nesneler
+    // Varsayılan olarak isim boş, değer 0 ve tarih bilgisi yok.
+    var sonX8 = { name: "Kimse Yapmadı", value: 0, dateStr: "" };
+    var sonX4 = { name: "Kimse Yapmadı", value: 0, dateStr: "" };
+    var sonX2 = { name: "Kimse Yapmadı", value: 0, dateStr: "" };
+    var sonX1 = { name: "Kimse Yapmadı", value: 0, dateStr: "" };
+
+    // Logları tarihe göre eskiden yeniye sıralayalım ki en son yapan en güncel veri olsun
+    var kronolojikLoglar = ALL_LOGS.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    kronolojikLoglar.forEach(function(log) {
         // Sadece giriş yapmış odaya/gruba ait kayıtları süzüyoruz
         if (!log.owner || log.owner.trim().toLowerCase() !== currentOwner) return;
 
         // Maçtaki oyuncuları cezalarına göre sıralayalım (Küçük alan kazanır)
         var sortedPlayers = log.players.slice().sort((a, b) => a.penalty - b.penalty);
+
+        // Tarih formatlama asistanı (Saat:Dakika Gün/Ay/Yıl)
+        var dinamikTarih = "";
+        if (log.date) {
+            var d = new Date(log.date);
+            var saat = String(d.getHours()).padStart(2, '0');
+            var dakika = String(d.getMinutes()).padStart(2, '0');
+            var gun = String(d.getDate()).padStart(2, '0');
+            var ay = String(d.getMonth() + 1).padStart(2, '0');
+            var yil = d.getFullYear();
+            dinamikTarih = `${saat}:${dakika} - ${gun}/${ay}/${yil}`;
+        }
 
         log.players.forEach(function(p) {
             var name = p.name.trim();
@@ -535,9 +560,8 @@ function hesaplaVeBasEnler() {
                 pData[name] = {
                     totalGames: 0, totalPenalty: 0,
                     pos1: 0, pos2: 0, pos3: 0, posLast: 0,
-                    x1Count: 0, x2Count: 0, x4Count: 0, x8Count: 0,
                     maxSingleCell: 0,
-                    totalOpenedHands: 0 // <-- YENİ: Toplam açılan (sıfırlanan) el sayısı
+                    totalOpenedHands: 0
                 };
             }
 
@@ -550,43 +574,49 @@ function hesaplaVeBasEnler() {
             if (rank === 0) pObj.pos1++;
             else if (rank === 1) pObj.pos2++;
             else if (rank === 2) pObj.pos3++;
-            
             if (rank === log.players.length - 1) pObj.posLast++;
 
-            // --- GÜNCELLENEN DÜZELTME ALANI ---
-            // 1. Eğer yeni sistemle kaydedilmiş "maxSingle" değeri varsa doğrudan onu alıyoruz
+            // --- MAX SINGLE HESAPLAMA ---
             if (typeof p.maxSingle !== 'undefined' && p.maxSingle > pObj.maxSingleCell) {
                 pObj.maxSingleCell = p.maxSingle;
-            } 
-            // 2. Eski oyunlarda maxSingle yoksa, hata vermemesi için mantıksal bir fallback (yedek) yapıyoruz:
-            else if (typeof p.maxSingle === 'undefined' && p.penalty > pObj.maxSingleCell) {
+            } else if (typeof p.maxSingle === 'undefined' && p.penalty > pObj.maxSingleCell) {
                 var tahminiEnBuyukEl = Math.round(p.penalty / 2);
                 if (tahminiEnBuyukEl > pObj.maxSingleCell) {
                     pObj.maxSingleCell = tahminiEnBuyukEl;
                 }
             }
 
-            // --- EL AÇMA SAYILARINI TOPLAMA VE ESKİ MAÇLARI KURTARMA ---
+            // --- EL AÇMA SAYILARINI TOPLAMA ---
             if (typeof p.openedHands !== 'undefined') {
-                // Yeni sistemle kaydedilmişse net sayıyı ekle
                 pObj.totalOpenedHands += p.openedHands;
-            } else {
-                // ESKİ OYUNLAR İÇİN ESNEK YEDEK FORMÜL:
-                // Eğer oyuncunun o maçtaki toplam cezası çok düşükse (örneğin 200'den azsa) 
-                // kesin el açmıştır diyerek geriye dönük istatistiği canlandırıyoruz.
-                if (p.penalty === 0) {
-                    pObj.totalOpenedHands += 3; // Sıfır ceza bitirdiyse en az 3-4 el açmıştır
-                } else if (p.penalty < 200) {
-                    pObj.totalOpenedHands += 2;
-                } else if (p.penalty < 500) {
-                    pObj.totalOpenedHands += 1;
-                }
-                // Ceza çok yüksekse el açamadığını varsayıyoruz (0 ekleniyor)
+            }
+
+            // --- EN SON X BİTİŞİ YAPANIN TESPİTİ ---
+            // Eğer oyuncu bu maçta o bitişten en az 1 tane yaptıysa rekoru ona devrediyoruz (tarihle birlikte)
+            if (p.x8Count && p.x8Count > 0) {
+                sonX8.name = name;
+                sonX8.value = p.x8Count;
+                sonX8.dateStr = dinamikTarih;
+            }
+            if (p.x4Count && p.x4Count > 0) {
+                sonX4.name = name;
+                sonX4.value = p.x4Count;
+                sonX4.dateStr = dinamikTarih;
+            }
+            if (p.x2Count && p.x2Count > 0) {
+                sonX2.name = name;
+                sonX2.value = p.x2Count;
+                sonX2.dateStr = dinamikTarih;
+            }
+            if (p.x1Count && p.x1Count > 0) {
+                sonX1.name = name;
+                sonX1.value = p.x1Count;
+                sonX1.dateStr = dinamikTarih;
             }
         });
     });
 
-    // En iyileri/kötüleri ayıklamak için sıralama asistanı
+    // En iyileri/kötüleri ayıklamak için standart sıralama asistanı
     function getTop(field, isAscending = false) {
         var players = Object.keys(pData);
         if (players.length === 0) return { name: "Veri Yok", value: 0 };
@@ -599,15 +629,9 @@ function hesaplaVeBasEnler() {
     var garantici = getTop('pos2');
     var yanci = getTop('pos3');
     var hesapOdeyen = getTop('posLast');
-    
-    // Değişmesi gereken yerleştirme: Maç sayısına değil, toplam açılan el sayısına göre filtreliyoruz
     var masaAgasi = getTop('totalOpenedHands'); 
     var kacak = getTop('totalOpenedHands', true); 
     
-    var x8Lideri = getTop('x8Count');
-    var x4Lideri = getTop('x4Count');
-    var x2Lideri = getTop('x2Count');
-    var xLideri = getTop('x1Count');
     var enCokBatan = getTop('totalPenalty');
     var enAzCezaYiyen = getTop('totalPenalty', true);
     var tekAtistaYikilan = getTop('maxSingleCell');
@@ -631,24 +655,31 @@ function hesaplaVeBasEnler() {
         return;
     }
 
+    // Kart açıklamalarını dinamik olarak son tarihe göre biçimlendirme
+    var x8Desc = sonX8.dateStr ? `${sonX8.dateStr}` : "0 Kez";
+    var x4Desc = sonX4.dateStr ? `${sonX4.dateStr}` : "0 Kez";
+    var x2Desc = sonX2.dateStr ? `${sonX2.dateStr}` : "0 Kez";
+    var x1Desc = sonX1.dateStr ? `${sonX1.dateStr}` : "0 Kez";
+
     // Kartları ekrana basıyoruz
     container.innerHTML = 
         createCard("Masanın Kralı (En Çok 1.)", "🏆", kral.name, `${kral.value} Maç`, "#28a745") +
         createCard("Garantici (En Çok 2.)", "🥈", garantici.name, `${garantici.value} Maç`, "#17a2b8") +
         createCard("Yancı (En Çok 3.)", "🥉", yanci.name, `${yanci.value} Maç`, "#ffc107") +
         createCard("Hesap Ödeyen (En Çok Sonuncu)", "💸", hesapOdeyen.name, `${hesapOdeyen.value} Maç`, "#dc3545") +
-        // Kart etiketlerini ve açıklamalarını da "Maç" yerine "El" olacak şekilde güncelledik
         createCard("Masa Ağası (En Çok El Açan)", "🃏", masaAgasi.name, `${masaAgasi.value} El`, "#6c757d") +
         createCard("Gözü Dışarıda (En Az El Açan)", "🚪", kacak.name, `${kacak.value} El`, "#e67e22") +
-        createCard("Yıldırım Telgrafı (En Çok 8x)", "🚀", x8Lideri.name, `${x8Lideri.value} El`, "#6f42c1") +
-        createCard("Katlamacı Lideri (En Çok 4x)", "💥", x4Lideri.name, `${x4Lideri.value} El`, "#fd7e14") +
-        createCard("Dengeli Oyuncu (En Çok 2x)", "⚖️", x2Lideri.name, `${x2Lideri.value} El`, "#20c997") +
-        createCard("Düzcü (En Çok Düz/X Açan)", "🧩", xLideri.name, `${xLideri.value} El`, "#007bff") +
+        
+        // --- YENİLENEN X REKOR KARTLARI ---
+        createCard("Yıldırım Telgrafı (Son 8x - xxxxxxxx)", "🚀", sonX8.name, x8Desc, "#6f42c1") +
+        createCard("Katlamacı Lideri (Son 4x - xxxx)", "💥", sonX4.name, x4Desc, "#fd7e14") +
+        createCard("Dengeli Oyuncu (Son 2x - xx)", "⚖️", sonX2.name, x2Desc, "#20c997") +
+        createCard("Düzcü (Son 1x - x)", "🧩", sonX1.name, x1Desc, "#007bff") +
+        
         createCard("Tek Elde Yıkılan (En Büyük El)", "🌋", tekAtistaYikilan.name, `${tekAtistaYikilan.value} Ceza`, "#721c24") +
         createCard("Sünger (En Çok Ceza Yiyen)", "🧽", enCokBatan.name, `${enCokBatan.value} Toplam`, "#bd2130") +
         createCard("Halı Altı Eden (En Az Ceza Yiyen)", "🧼", enAzCezaYiyen.name, `${enAzCezaYiyen.value} Toplam`, "#28a745");
-}
-        function kur(tid, targetId) {
+}        function kur(tid, targetId) {
             var head = '<tr><th class="col-el">EL</th>';
             var lowHead = '<tr><th class="col-el">GİR</th>';
             var tRow = '<td class="col-el">TOP</td>';
@@ -661,6 +692,8 @@ function hesaplaVeBasEnler() {
                 historyCells += '<td id="histCol-' + i + '"></td>';
             }
             
+	    var devredenCezalar = [];
+
             var rows = "";
             for(var i=1; i<=cfg.e; i++) {
                 rows += '<tr id="row-' + tid + '-' + i + '"><td class="col-el">' + i + '</td>';
@@ -679,7 +712,7 @@ function hesaplaVeBasEnler() {
             setTimeout(() => bindLongPress(tid), 500);
             hesapla(tid);
         }
-
+		devredenCezalar = Array(cfg.p).fill(0);
         function nav(e) {
             if (e.key === "Enter") {
                 e.preventDefault();
@@ -722,44 +755,151 @@ function hesaplaVeBasEnler() {
         }
 
         function yeniEleGec(tid) {
-            var el = aktifEl[tid];
-            if(el >= cfg.e) { alert("Zaten son eldesiniz!"); return; }
+    // Güvenlik: Havuz dizisi boşsa oyuncu sayısına göre (cfg.p) sıfırlarla doldur
+    if (devredenCezalar.length === 0 && cfg && cfg.p) {
+        devredenCezalar = Array(cfg.p).fill(0);
+    }
 
-            var tr = document.getElementById('row-' + tid + '-' + el);
-            if(tr) tr.classList.add('row-played');
+    var el = aktifEl[tid];
+    if(el > cfg.e) { alert("Oyun zaten bitti!"); return; }
 
-            var currentInputs = document.querySelectorAll('#row-' + tid + '-' + el + ' input');
-            currentInputs.forEach(inp => { inp.readOnly = true; });
+    var elBitisleri = []; 
+    var altCezaToplami = []; 
 
-            aktifEl[tid]++;
-            var sonrakiEl = aktifEl[tid];
-            var nextInputs = document.querySelectorAll('#row-' + tid + '-' + sonrakiEl + ' input');
-            nextInputs.forEach(inp => inp.disabled = false);
-
-            if(nextInputs.length > 0) nextInputs[0].focus();
-            hesapla(tid);
+    // 1. Alt bölümdeki cezaları ve x (bitiş) durumlarını tara
+    for(var i=0; i<cfg.p; i++) {
+        var xMetni = "";
+        var safCeza = 0;
+        
+        var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
+        for(var m=0; m<spans.length; m++) {
+            var hamYazi = spans[m].innerText.toString().trim().toLowerCase();
+            if (hamYazi.indexOf('x') !== -1) {
+                xMetni = hamYazi; 
+            } else {
+                safCeza += coz(spans[m].innerText); 
+            }
         }
+        elBitisleri.push(xMetni);
+        altCezaToplami.push(safCeza);
+    }
+
+    // 2. Değerleri Üst Tablodaki Mevcut Elin Satırına İşle
+    for(var i=0; i<cfg.p; i++) {
+        var inputUst = document.querySelector('#row-' + tid + '-' + el + ' .in-' + tid + '-' + i);
+        if(!inputUst) continue;
+
+        if (elBitisleri[i] !== "") {
+            // Oyuncu bitirdiyse: Üst tabloya sadece x'leri yaz, cezayı yazma
+            inputUst.value = elBitisleri[i];
+            // Yediği cezayı devreden havuzuna ekle
+            devredenCezalar[i] += altCezaToplami[i];
+        } else {
+            // Oyuncu bitiremediyse: Bu eldeki cezası + geçmişten devreden cezası
+            var toplamYazilacak = altCezaToplami[i] + (devredenCezalar[i] || 0);
+            inputUst.value = toplamYazilacak > 0 ? toplamYazilacak : "";
+            
+            // Cezası üst tabloya işlendiği için havuzu sıfırla
+            devredenCezalar[i] = 0;
+        }
+    }
+
+    // 3. Alt Bölümü Temizle (İstediğin gibi son el dahil artık hep siliniyor)
+    for(var i=0; i<cfg.p; i++) {
+        var col = document.getElementById('histCol-' + i);
+        if(col) col.innerHTML = "";
+    }
+    var altInputs = document.querySelectorAll('.lower-table-wrapper input[type="text"]');
+    altInputs.forEach(inp => inp.value = "");
+
+    // Oynanan satırı kilitle
+    var tr = document.getElementById('row-' + tid + '-' + el);
+    if(tr) tr.classList.add('row-played');
+    var currentInputs = document.querySelectorAll('#row-' + tid + '-' + el + ' input');
+    currentInputs.forEach(inp => { inp.readOnly = true; });
+
+    // 4. Uyarı Sistemi ve Tur İlerleme
+    if (el === (cfg.e - 1)) {
+        ekranUyarisiGoster("TOPLAMA ELİ", "#fd7e14");
+    } 
+    else if (el === cfg.e) {
+        ekranUyarisiGoster("OYUN BİTTİ", "#28a745");
+        aktifEl[tid]++; // Oyun bitti işaretlemesi
+        hesapla(tid);
+        return; 
+    }
+
+    if (el + 1 === cfg.e) {
+        ekranUyarisiGoster("SON EL", "#dc3545");
+    }
+    // Bir sonraki eli aktifleştir (Arka planda tur sayacı ilerler ama üst satırlar kilitli kalır)
+    aktifEl[tid]++;
+    
+    // İmleci alt tablodaki (lower table) ilk oyuncunun giriş inputuna odaklarız
+    // (.lower-table-wrapper altındaki ilk text inputunu hedef alırız)
+    var altIlkInput = document.querySelector('.lower-table-wrapper input[type="text"], #lowerTable input');
+    if (altIlkInput) {
+        altIlkInput.focus();
+    }
+    
+    hesapla(tid);
+}
+
+// 3 Saniye Görünüp Kaybolan Ekran Uyarısı Fonksiyonu
+function ekranUyarisiGoster(metin, renk) {
+    var uyariKutusu = document.createElement('div');
+    uyariKutusu.style.position = 'fixed';
+    uyariKutusu.style.top = '50%';
+    uyariKutusu.style.left = '50%';
+    uyariKutusu.style.transform = 'translate(-50%, -50%)';
+    uyariKutusu.style.background = renk;
+    uyariKutusu.style.color = '#fff';
+    uyariKutusu.style.padding = '20px 40px';
+    uyariKutusu.style.fontSize = '26px';
+    uyariKutusu.style.fontWeight = 'bold';
+    uyariKutusu.style.borderRadius = '12px';
+    uyariKutusu.style.boxShadow = '0 8px 25px rgba(0,0,0,0.3)';
+    uyariKutusu.style.zIndex = '999999';
+    uyariKutusu.style.transition = 'opacity 0.4s ease';
+    uyariKutusu.innerText = metin;
+
+    document.body.appendChild(uyariKutusu);
+
+    setTimeout(function() {
+        uyariKutusu.style.opacity = '0';
+        setTimeout(function() { uyariKutusu.remove(); }, 400);
+    }, 3000);
+}
 
         function hesapla(tid) {
-            var t = [];
-            for(var k=0; k<cfg.p; k++) t.push(0);
+    var t = [];
+    for(var k=0; k<cfg.p; k++) t.push(0);
 
-            for(var i=0; i<cfg.p; i++) {
-                var inputs = document.querySelectorAll('.in-' + tid + '-' + i);
-                for(var j=0; j<inputs.length; j++) t[i] += coz(inputs[j].value);
-                var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
-                for(var m=0; m<spans.length; m++) t[i] += coz(spans[m].innerText);
-                var cell = document.getElementById('t-' + tid + '-' + i);
-                if(cell) cell.innerText = t[i];
-            }
-            
-            var sorted = t.slice().sort(function(a,b){return a-b;});
-            for(var i=0; i<cfg.p; i++) {
-                var rank = sorted.indexOf(t[i]);
-                var cellClass = document.getElementById('t-' + tid + '-' + i);
-                if(cellClass) cellClass.className = 'rank-' + (rank > 3 ? 3 : rank);
-            }
+    for(var i=0; i<cfg.p; i++) {
+        // 1. Üst tablodaki yazılı tüm input değerlerini çöz ve ekle
+        var inputs = document.querySelectorAll('.in-' + tid + '-' + i);
+        for(var j=0; j<inputs.length; j++) t[i] += coz(inputs[j].value);
+        
+        // 2. Alt tarafta henüz üst tabloya atılmamış, anlık bekleyen canlı cezaları ekle
+        var spans = document.querySelectorAll('#histCol-' + i + ' .history-item');
+        for(var m=0; m<spans.length; m++) t[i] += coz(spans[m].innerText);
+
+        // 3. ÜST TABLOYA YANSITILMAYAN, HAVUZDA GİZLİ TUTULAN CEZALARI EKLE
+        if (devredenCezalar && devredenCezalar[i]) {
+            t[i] += devredenCezalar[i];
         }
+
+        var cell = document.getElementById('t-' + tid + '-' + i);
+        if(cell) cell.innerText = t[i];
+    }
+    
+    var sorted = t.slice().sort(function(a,b){return a-b;});
+    for(var i=0; i<cfg.p; i++) {
+        var rank = sorted.indexOf(t[i]);
+        var cellClass = document.getElementById('t-' + tid + '-' + i);
+        if(cellClass) cellClass.className = 'rank-' + (rank > 3 ? 3 : rank);
+    }
+}
 
         function coz(s) {
             if(!s) return 0;
@@ -827,12 +967,17 @@ function oyunuKaydet() {
     
     var tFinal = [];
     var maxSingles = [];
-    var zeroCounts = []; // Oyuncuların el açma sayılarını tutacak dizi
+    var zeroCounts = []; 
+    // YENİ: Oyuncuların bu maçta yaptığı özel bitiş sayılarını tutalım
+    var xStats = []; 
 
     for(var i=0; i<cfg.p; i++) {
         var val = 0;
         var enBuyukEl = 0;
-        var sifirElSayisi = 0; // El açma sayacı
+        var sifirElSayisi = 0; 
+        
+        // Bu oyuncunun bu maçtaki bitiş sayaçları
+        var counts = { x1: 0, x2: 0, x4: 0, x8: 0 };
 
         // 1. Aktif inputlardaki elleri kontrol et
         var inputs = document.getElementsByClassName('in-2-' + i);
@@ -842,12 +987,12 @@ function oyunuKaydet() {
             val += hucreDegeri;
             if (hucreDegeri > enBuyukEl) enBuyukEl = hucreDegeri;
             
-            // DÜZELTME: Eğer hücre boşsa VEYA içinde x, 2x, 4x, 8x gibi ibareler varsa oyuncu açmıştır.
-            // Sayısal ceza yiyenlerin hücresi boş olmaz ve coz() değeri 0'dan büyük olur.
             if (inputs[j].value !== "") {
-                if (hamYazi === 'x' || hamYazi === '2x' || hamYazi === '4x' || hamYazi === '8x') {
-                    sifirElSayisi++;
-                }
+                // Tam eşleşme kontrolü (Örn: yanyana 8 tane x varsa 8x bitişidir)
+                if (hamYazi === 'xxxxxxxx') { counts.x8++; sifirElSayisi++; }
+                else if (hamYazi === 'xxxx') { counts.x4++; sifirElSayisi++; }
+                else if (hamYazi === 'xx') { counts.x2++; sifirElSayisi++; }
+                else if (hamYazi === 'x') { counts.x1++; sifirElSayisi++; }
             }
         }
 
@@ -859,17 +1004,18 @@ function oyunuKaydet() {
             val += elDegeri;
             if (elDegeri > enBuyukEl) enBuyukEl = elDegeri;
             
-            // DÜZELTME: Geçmiş ellerde x'li bitişleri say
             if (spans[m].innerText !== "") {
-                if (hamYaziSpans === 'x' || hamYaziSpans === '2x' || hamYaziSpans === '4x' || hamYaziSpans === '8x') {
-                    sifirElSayisi++;
-                }
+                if (hamYaziSpans === 'xxxxxxxx') { counts.x8++; sifirElSayisi++; }
+                else if (hamYaziSpans === 'xxxx') { counts.x4++; sifirElSayisi++; }
+                else if (hamYaziSpans === 'xx') { counts.x2++; sifirElSayisi++; }
+                else if (hamYaziSpans === 'x') { counts.x1++; sifirElSayisi++; }
             }
         }
 
         tFinal.push(val);
         maxSingles.push(enBuyukEl);
         zeroCounts.push(sifirElSayisi); 
+        xStats.push(counts); // Oyuncunun bitiş istatistiklerini diziye ekle
     }
 
     var names = [];
@@ -893,7 +1039,12 @@ function oyunuKaydet() {
             penalty: tFinal[i], 
             pts: dynamicPts < 0 ? 0 : dynamicPts,
             maxSingle: maxSingles[i],
-            openedHands: zeroCounts[i] // <-- YENİ: Buluta giden el açma sayısı
+            openedHands: zeroCounts[i],
+            // YENİ: Bitiş sayılarını nesne olarak buluta yolluyoruz
+            x1Count: xStats[i].x1,
+            x2Count: xStats[i].x2,
+            x4Count: xStats[i].x4,
+            x8Count: xStats[i].x8
         });
     }
 
@@ -1011,26 +1162,43 @@ function oyunuKaydet() {
         }
 
         // --- BULUTTAKİ VERİLERİ SIFIRLAMA ---
-        function istatistikSifirla() {
-            if(confirm("DİKKAT! Buluttaki tüm ortak oyun geçmişi silinecek. Emin misiniz?")) {
-                var adminSifre = prompt("İstatistikleri kalıcı olarak silmek için lütfen Yönetici şifresini girin:");
-                if (adminSifre !== USERS['admin'].pass) {
-                    alert("Yetkisiz İşlem! Yönetici şifresi hatalı.");
-                    return;
-                }
-                
-                // Firestore'daki tüm logları temizle
-                db.collection("game_logs").get().then((snapshot) => {
-                    let batch = db.batch();
-                    snapshot.docs.forEach((doc) => {
-                        batch.delete(doc.ref);
-                    });
-                    return batch.commit();
-                }).then(() => {
-                    alert("Tüm ortak veriler başarıyla sıfırlandı.");
-                });
-            }
+function istatistikSifirla() {
+    // Giriş yapmış mevcut kullanıcıyı kontrol et
+    var currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) { 
+        alert("Oturum açılmamış! Önce giriş yapmalısınız."); 
+        return; 
+    }
+    var currentOwner = currentUser.trim().toLowerCase();
+
+    if(confirm("DİKKAT! Sadece bu odaya/kullanıcıya ait ortak oyun geçmişi silinecek. Emin misiniz?")) {
+        var adminSifre = prompt("İstatistikleri kalıcı olarak silmek için lütfen Yönetici şifresini girin:");
+        if (adminSifre !== USERS['admin'].pass) {
+            alert("Yetkisiz İşlem! Yönetici şifresi hatalı.");
+            return;
         }
+        
+        // Firestore'da sadece bu kullanıcıya ait (owner) logları sorgula
+        db.collection("game_logs").where("owner", "==", currentOwner).get().then((snapshot) => {
+            if (snapshot.empty) {
+                alert("Silinecek size ait herhangi bir oyun kaydı bulunamadı.");
+                return;
+            }
+
+            let batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            return batch.commit();
+        }).then(() => {
+            // Sadece ilgili veri silindiği için mesajı ona göre güncelledik
+            alert("Size ait tüm ortak veriler başarıyla sıfırlandı.");
+            location.reload(); // Değişikliklerin ekrana yansıması için sayfayı yeniler
+        }).catch((error) => {
+            alert("Sıfırlama sırasında bir hata oluştu: " + error);
+        });
+    }
+}
 
         // --- BULUTTAKİ GEÇMİŞ OYUNLARI LİSTELEME ---
         function gecmisOyunlariListele() {
