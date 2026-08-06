@@ -156,9 +156,9 @@
         <div class="card" id="mainUI" style="display:none;">
             <div class="tabs">
                 <button id="btn2" class="tab-btn active" onclick="sekmeAc(2)">🟢 MASA</button>
-				<button id="btn4" class="tab-btn" onclick="sekmeAc(4)">📅 OYUNLAR</button>
+		<button id="btn4" class="tab-btn" onclick="sekmeAc(4)">📅 OYUNLAR</button>
                 <button id="btn3" class="tab-btn" onclick="sekmeAc(3)">📊 TABLO</button>
-				<button id="btn5" class="tab-btn" onclick="sekmeAc(5)">🔥 ENLER</button>
+		<button id="btn5" class="tab-btn" onclick="sekmeAc(5)">🔥 ENLER</button>
             </div>
 
             <!-- SEKME 2 (ANA OYUN MASASI) -->
@@ -686,11 +686,19 @@ function hesaplaVeBasEnler() {
             var historyCells = '<td class="col-el">•</td>';
 
             for(var i=0; i<cfg.p; i++) {
-                head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
-                lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
-                tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
-                historyCells += '<td id="histCol-' + i + '"></td>';
-            }
+    head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
+    
+    // inputmode="text" yapıldı ve kutunun hemen yanına hızlı [X] butonu eklendi
+    lowHead += '<td>' +
+        '<div style="display:flex; align-items:center; gap:3px;">' +
+            '<input type="text" inputmode="text" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')">' +
+            '<button type="button" onclick="altInputXEkle(document.getElementById(\'lowInp-' + i + '\'))" style="padding:4px 8px; background:#dc3545; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>' +
+        '</div>' +
+    '</td>';
+
+    tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
+    historyCells += '<td id="histCol-' + i + '"></td>';
+}
             
 	    var devredenCezalar = [];
 
@@ -844,6 +852,30 @@ function hesaplaVeBasEnler() {
     
     hesapla(tid);
 }
+
+// ... Diğer kodların veya yeniEleGec fonksiyonunun bittiği yer
+
+function altInputXEkle(inputElem) {
+    if (!inputElem) inputElem = document.activeElement;
+    if (inputElem && inputElem.tagName === 'INPUT') {
+        var mevcutVal = inputElem.value.trim().toLowerCase();
+        
+        // Eğer kutu boşsa veya sayı varsa 'x' ile değiştirir
+        if (mevcutVal === '' || !isNaN(mevcutVal)) {
+            inputElem.value = 'x';
+        } else if (mevcutVal === 'x') {
+            // İkinci kez basılırsa çift x (xx) yapar
+            inputElem.value = 'xx';
+        } else {
+            inputElem.value = 'x';
+        }
+        
+        // Input değişimini tetikle
+        inputElem.dispatchEvent(new Event('input'));
+    }
+}
+
+// ... Diğer kodların (örneğin hesapla veya enler motoru) devamı
 
 // 3 Saniye Görünüp Kaybolan Ekran Uyarısı Fonksiyonu
 function ekranUyarisiGoster(metin, renk) {
