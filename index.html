@@ -1328,5 +1328,31 @@ function istatistikSifirla() {
             });
         }
     </script>
+		<!-- ÖZEL EKRAN KLAVYESİ (NUMPAD) -->
+	<div id="customNumpad" class="custom-numpad">
+        <div class="numpad-row">
+        	<button type="button" class="num-btn" onclick="numpadYaz('1')">1</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('2')">2</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('3')">3</button>
+        </div>
+        <div class="numpad-row">
+        	<button type="button" class="num-btn" onclick="numpadYaz('4')">4</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('5')">5</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('6')">6</button>
+        </div>
+        <div class="numpad-row">
+        	<button type="button" class="num-btn" onclick="numpadYaz('7')">7</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('8')">8</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('9')">9</button>
+        </div>
+        <div class="numpad-row">
+        	<button type="button" class="num-btn btn-x" onclick="numpadYaz('x')">X</button>
+        	<button type="button" class="num-btn" onclick="numpadYaz('0')">0</button>
+        	<button type="button" class="num-btn btn-del" onclick="numpadSil()">SİL</button>
+        </div>
+        <div class="numpad-row">
+        	<button type="button" class="num-btn btn-enter" onclick="numpadTamam()">TAMAM / EKLE</button>
+        </div>
+	</div>
 </body>
 </html>
