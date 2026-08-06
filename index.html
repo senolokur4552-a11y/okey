@@ -685,16 +685,11 @@ function hesaplaVeBasEnler() {
             var tRow = '<td class="col-el">TOP</td>';
             var historyCells = '<td class="col-el">•</td>';
 
-            for(var i=0; i<cfg.p; i++) {
+           for(var i=0; i<cfg.p; i++) {
     head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
     
-    // inputmode="text" yapıldı ve kutunun hemen yanına hızlı [X] butonu eklendi
-    lowHead += '<td>' +
-        '<div style="display:flex; align-items:center; gap:3px;">' +
-            '<input type="text" inputmode="text" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')">' +
-            '<button type="button" onclick="altInputXEkle(document.getElementById(\'lowInp-' + i + '\'))" style="padding:4px 8px; background:#dc3545; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>' +
-        '</div>' +
-    '</td>';
+    // Eksi (-) tuşuna basıldığında anında 'x' harfine dönüştürür
+    lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value = this.value.replace(\'-\', \'x\').replace(/[^0-9xxXX]/g, \'\');" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
 
     tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
     historyCells += '<td id="histCol-' + i + '"></td>';
