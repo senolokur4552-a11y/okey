@@ -879,7 +879,36 @@ lowHead += '<td style="text-align:center;">' +
                 document.addEventListener('touchend', stopDrag); 
             });
         }
+// En son seçilen input kutusunu hafızada tutacak değişken
+var sonSecilenInput = null;
 
+// Sayfadaki tüm score-input'lara odaklanma (focus) takibi koyalım
+document.addEventListener('focusin', function(e) {
+    if (e.target && e.target.classList.contains('score-input')) {
+        sonSecilenInput = e.target;
+    }
+});
+
+function ortakXEkle() {
+    // Önce aktifi, yoksa hafızadaki son seçilen kutuyu al
+    var targetInput = (document.activeElement && document.activeElement.classList.contains('score-input')) 
+                        ? document.activeElement 
+                        : sonSecilenInput;
+
+    if (targetInput) {
+        if (targetInput.value.toLowerCase() === 'x') {
+            targetInput.value = 'xx';
+        } else {
+            targetInput.value = 'x';
+        }
+        targetInput.dispatchEvent(new Event('input'));
+        
+        // İşlem sonrası odağı tekrar kutuya ver
+        targetInput.focus();
+    } else {
+        alert("Lütfen önce X yazmak istediğiniz oyuncunun kutusuna tıklayın!");
+    }
+}
         
     </script>
 </body>
