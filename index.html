@@ -880,21 +880,7 @@ lowHead += '<td style="text-align:center;">' +
             });
         }
 
-        function ortakXEkle() {
-            var activeInput = document.activeElement;
-            
-            // Eğer tıklanan veya seçili olan eleman bir alt giriş kutusuysa
-            if (activeInput && activeInput.classList.contains('score-input')) {
-                if (activeInput.value.toLowerCase() === 'x') {
-                    activeInput.value = 'xx';
-                } else {
-                    activeInput.value = 'x';
-                }
-                activeInput.dispatchEvent(new Event('input'));
-            } else {
-                alert("Lütfen önce X yazmak istediğiniz oyuncunun kutusuna tıklayın!");
-            }
-        }
+        
     </script>
 </body>
 </html>
