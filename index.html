@@ -451,12 +451,15 @@
             var tRow = '<td class="col-el">TOP</td>';
             var historyCells = '<td class="col-el">•</td>';
 
-            for(var i=0; i<cfg.p; i++) {
-                head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
-                lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX-]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
-                tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
-                historyCells += '<td id="histCol-' + i + '"></td>';
-            }
+           for(var i=0; i<cfg.p; i++) {
+    head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
+    
+    // oninput içerisindeki dönüştürücü sayesinde eksi (-) tuşu anında 'x' harfine dönüşür
+    lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value = this.value.replace(\'-\', \'x\').replace(/[^0-9xxXX]/g, \'\');" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
+
+    tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
+    historyCells += '<td id="histCol-' + i + '"></td>';
+}
             
             var rows = "";
             for(var i=1; i<=cfg.e; i++) {
