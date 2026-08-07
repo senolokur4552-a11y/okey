@@ -454,8 +454,13 @@
            for(var i=0; i<cfg.p; i++) {
     head += '<th><input placeholder="Oyuncu '+(i+1)+'" class="name-2-' + i + ' name-input"></th>';
     
-    // oninput içerisindeki dönüştürücü sayesinde eksi (-) tuşu anında 'x' harfine dönüşür
-    lowHead += '<td><input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value = this.value.replace(\'-\', \'x\').replace(/[^0-9xxXX]/g, \'\');" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')"></td>';
+    // Kutunun yanına hazır X butonu eklendi
+    lowHead += '<td>' +
+        '<div style="display:flex; align-items:center; gap:2px;">' +
+            '<input type="text" inputmode="numeric" class="score-input" id="lowInp-' + i + '" oninput="this.value=this.value.replace(/[^0-9xxXX]/g,\'\')" onblur="altEkleBlur(event, ' + i + ')" onkeydown="altEkleKey(event, ' + i + ')">' +
+            '<button type="button" onclick="document.getElementById(\'lowInp-' + i + '\').value = (document.getElementById(\'lowInp-' + i + '\').value === \'x\' ? \'xx\' : \'x\'); document.getElementById(\'lowInp-' + i + '\').dispatchEvent(new Event(\'input\'));" style="padding:6px 10px; background:#dc3545; color:#fff; border:none; border-radius:4px; font-weight:bold; font-size:14px; cursor:pointer;">X</button>' +
+        '</div>' +
+    '</td>';
 
     tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
     historyCells += '<td id="histCol-' + i + '"></td>';
