@@ -1455,6 +1455,15 @@ function istatistikSifirla() {
     tRow += '<td id="t-' + tid + '-' + i + '">0</td>';
     historyCells += '<td id="histCol-' + i + '"></td>';
 }
+			function numpadAc(elem) {
+    // Sadece mobil veya tablet cihazlarda özel klavyeyi açar
+    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    
+    if (isMobile) {
+        aktifInputRef = elem;
+        document.getElementById('customNumpad').style.display = 'block';
+    }
+}
 	</div>
 </body>
 </html>
