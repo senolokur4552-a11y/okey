@@ -857,8 +857,7 @@ lowHead += '<td style="text-align:center;">' +
                 noteBox.style.display = "none";
             }
         }
-
-        // --- MOBİL DİKEY BOYUTLANDIRICI (RESIZER) ---
+// --- MOBİL DİKEY BOYUTLANDIRICI (RESIZER) ---
         function initResizer() {
             var resizer = document.getElementById('resizer');
             var upWrap = document.getElementById('upWrap2');
@@ -880,21 +879,23 @@ lowHead += '<td style="text-align:center;">' +
                 document.addEventListener('touchend', stopDrag); 
             });
         }
-    </script>
-    function ortakXEkle() {
-    var activeInput = document.activeElement;
-    
-    // Eğer tıklanan veya seçili olan eleman bir alt giriş kutusuysa
-    if (activeInput && activeInput.classList.contains('score-input')) {
-        if (activeInput.value.toLowerCase() === 'x') {
-            activeInput.value = 'xx';
-        } else {
-            activeInput.value = 'x';
+
+        function ortakXEkle() {
+            var activeInput = document.activeElement;
+            
+            // Eğer tıklanan veya seçili olan eleman bir alt giriş kutusuysa
+            if (activeInput && activeInput.classList.contains('score-input')) {
+                if (activeInput.value.toLowerCase() === 'x') {
+                    activeInput.value = 'xx';
+                } else {
+                    activeInput.value = 'x';
+                }
+                activeInput.dispatchEvent(new Event('input'));
+            } else {
+                alert("Lütfen önce X yazmak istediğiniz oyuncunun kutusuna tıklayın!");
+            }
         }
-        activeInput.dispatchEvent(new Event('input'));
-    } else {
-        alert("Lütfen önce X yazmak istediğiniz oyuncunun kutusuna tıklayın!");
-    }
-}
+    </script>
 </body>
 </html>
+        
